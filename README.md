@@ -29,6 +29,7 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 
 - **Update this app** — quiet background check for new releases (badge only, never a popup); one-tap install of `New3DS-FBI.cia` for title `0xF83FB` only
 - Kid-friendly main menu labels, top-screen tips, Advanced tools hidden until Settings enables them
+- **Send files from your PC (FTP)** — built-in FTP server (Advanced), SD card only, big on-screen address
 
 
 ## Update this app (self-update)
@@ -36,6 +37,18 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 On launch, if Wi-Fi works and **Settings → Check for app updates** is On (default), New3DS FBI quietly asks GitHub for the latest release. That never blocks startup, never shows a popup, and never makes a sound. If a newer version exists, a small **Update available (vX)** line appears on the main screen and on **Update this app**.
 
 Open **Update this app** to read the changelog and install `New3DS-FBI.cia` in one step (overwrite of title `000400000F83FB00` only; your settings stay). Then restart the app. You can **Skip this version** or turn the check off in Settings / the update screen.
+
+
+## Send files from your PC (FTP)
+
+Under **Advanced… → Send files from your PC (FTP)** (Advanced must be enabled in Settings). Opens a single easy screen with a large `ftp://<3DS-IP>:5000` address, short steps for File Explorer / FileZilla, live status (waiting / connected / transfer progress), and **B = stop**.
+
+- Never auto-starts; only runs while that screen is open
+- Access is limited to **`sdmc:/`** (your SD card) — no NAND or system paths
+- Optional FTP password in Settings (default: none). Use **only on home Wi-Fi**
+- Optional keep-screen-awake (default On) so the console does not sleep mid-transfer
+
+The FTP server is an original MIT-licensed implementation written for this fork (not GPLv3 `mtheall/ftpd`, which is license-incompatible with FBI’s MIT license).
 
 ## Settings & Advanced tools
 

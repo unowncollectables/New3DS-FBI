@@ -12,6 +12,7 @@
 #include "section.h"
 #include "settings.h"
 #include "selfupdate.h"
+#include "ftp.h"
 #include "task/uitask.h"
 
 #define CURRENT_KPROCESS (*(void**) 0xFFFF9004)
@@ -162,11 +163,13 @@ void init() {
     task_init();
     settings_init();
     selfupdate_init();
+    ftp_init();
 }
 
 void cleanup() {
     clipboard_clear();
 
+    ftp_exit();
     selfupdate_exit();
     settings_exit();
     task_exit();

@@ -1,4 +1,4 @@
-# Hardware testing — New3DS FBI v3.1.0
+# Hardware testing — New3DS FBI v3.2.0
 
 ## Builder / paths
 - Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
@@ -6,7 +6,7 @@
 
 ## Rebrand / version
 - [ ] HOME Menu shows **New3DS FBI**; installs beside original FBI
-- [ ] Top bar shows **Ver. 3.1.0** (not 2.6.1)
+- [ ] Top bar shows **Ver. 3.2.0** (not 2.6.1)
 - [ ] SMDH description mentions **Based on FBI by Steveice10**
 - [ ] Main menu title **New3DS FBI**; Steveice10 credit on top screen; **About / Credits**
 
@@ -38,3 +38,13 @@
 ## Safety
 - [ ] Unsafe CIAs refused; no DeleteTitle / InstallFirm on these paths
 - [ ] Home Menu / Settings OK after tests
+
+## FTP (Advanced)
+- [ ] Hidden until Show advanced tools is On
+- [ ] Label: Send files from your PC (FTP); tip mentions home Wi-Fi / SD only
+- [ ] Screen shows big ftp://IP:5000 and simple PC steps
+- [ ] Status updates: waiting → connected → transfer with progress
+- [ ] B stops server and leaves; does not run in background after exit
+- [ ] Can browse/upload/download only SD paths; cannot reach NAND
+- [ ] Optional password from Settings enforced when set
+- [ ] Keep screen awake toggle works (Settings + X on FTP screen)

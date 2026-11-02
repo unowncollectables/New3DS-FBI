@@ -8,6 +8,7 @@
 #include "section.h"
 #include "settings.h"
 #include "selfupdate.h"
+#include "ftp.h"
 #include "../core/core.h"
 
 /* Everyday menu (kid-friendly labels). */
@@ -31,6 +32,7 @@ static list_item adv_twl_photo = {"TWL Photo", COLOR_TEXT, files_open_twl_photo}
 static list_item adv_twl_sound = {"TWL Sound", COLOR_TEXT, files_open_twl_sound};
 static list_item adv_dump_nand = {"Dump NAND", COLOR_TEXT, dumpnand_open};
 static list_item adv_syssave = {"System Save Data", COLOR_TEXT, systemsavedata_open};
+static list_item adv_ftp = {"Send files from your PC (FTP)", COLOR_TEXT, ftp_open};
 
 static const char* mainmenu_tooltip(list_item* selected) {
     if(selected == &mm_sd) {
@@ -93,6 +95,9 @@ static const char* advanced_tooltip(list_item* selected) {
     }
     if(selected == &adv_syssave) {
         return "WARNING: System save data. Editing it can break system apps.";
+    }
+    if(selected == &adv_ftp) {
+        return "Share your SD card with a computer over Wi-Fi. Easy copy of files. Home Wi-Fi only.";
     }
     return "Advanced tool — be careful.";
 }
@@ -212,6 +217,7 @@ static void advanced_update(ui_view* view, void* data, linked_list* items, list_
     }
 
     if(linked_list_size(items) == 0) {
+        linked_list_add(items, &adv_ftp);
         linked_list_add(items, &adv_ctr_nand);
         linked_list_add(items, &adv_twl_nand);
         linked_list_add(items, &adv_twl_photo);
