@@ -236,8 +236,9 @@ static void list_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
 
             if(item == listData->selectedItem) {
                 /* Big friendly selected-row highlight */
-                screen_draw_rect(x1, y, x2 - x1, fontHeight, COLOR_ACCENT, true);
-                if(!resources_is_dark()) {
+                screen_draw_rect(x1, y, x2 - x1, fontHeight, COLOR_BAR, true);
+                screen_draw_rect(x1, y, 4.0f, fontHeight, COLOR_ACCENT, true);
+                if(false) { /* old overlay washed out text */
                     u32 selectionOverlayWidth = 0;
                     screen_get_texture_size(&selectionOverlayWidth, NULL, TEXTURE_SELECTION_OVERLAY);
                     if(selectionOverlayWidth > 0) {

@@ -155,10 +155,20 @@ static void about_update(ui_view* view, void* data, float* progress, char* text)
     u32 down = hidKeysDown();
     u32 held = hidKeysHeld();
 
-    /* Hidden: hold L+R and press Y */
-    if((held & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (down & KEY_Y)) {
-        cardcalc_open();
-        return;
+    /* Hidden: L+R+Y combo, or press Y 5 times quickly */
+    static int s_yTaps = 0;
+    static u64 s_yTapMs = 0;
+    u32 both = held | down;
+    if(down & KEY_Y) {
+        u64 now = osGetTime();
+        if(now - s_yTapMs > 2000) s_yTaps = 0;
+        s_yTapMs = now;
+        s_yTaps++;
+        if(((both & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) || s_yTaps >= 5) {
+            s_yTaps = 0;
+            cardcalc_open();
+            return;
+        }
     }
 
     if(down & KEY_TOUCH) {

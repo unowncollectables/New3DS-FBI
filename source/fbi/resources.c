@@ -149,7 +149,7 @@ void resources_apply_accent(void) {
     switch(g_accent) {
         case RESOURCES_ACCENT_GREEN:
             bright = 0xFF22C55E;
-            darkBar = 0xFF16A34A;
+            darkBar = 0xFF15803D;
             break;
         case RESOURCES_ACCENT_PURPLE:
             bright = 0xFFA855F7;
@@ -157,7 +157,7 @@ void resources_apply_accent(void) {
             break;
         case RESOURCES_ACCENT_ORANGE:
             bright = 0xFFF97316;
-            darkBar = 0xFFEA580C;
+            darkBar = 0xFFC2410C;
             break;
         case RESOURCES_ACCENT_BLUE:
         default:
