@@ -257,7 +257,8 @@ static void list_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
 
             u32 textColor = item->color;
             if(item == listData->selectedItem) {
-                textColor = COLOR_BAR_TEXT; /* white on accent highlight */
+                screen_set_color(19, 0xFFFFFFFF);
+                textColor = 19; /* always pure white on highlight */
             }
             screen_draw_string(item->name, x, textY, LIST_TEXT_SCALE, LIST_TEXT_SCALE, textColor, true);
         }
