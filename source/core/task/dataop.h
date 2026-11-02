@@ -59,6 +59,10 @@ typedef struct data_op_data_s {
     // Errors
     bool (*error)(void* data, u32 index, Result res, ui_view** errorView);
 
+    /* If true: on failure, show the error then continue to the next item
+       when error() returns true (no Retry? prompt). */
+    bool continueOnError;
+
     // General
     volatile bool finished;
     Result result;

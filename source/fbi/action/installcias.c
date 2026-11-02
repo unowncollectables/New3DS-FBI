@@ -170,7 +170,12 @@ static Result action_install_cias_restore(void* data, u32 index) {
 }
 
 bool action_install_cias_error(void* data, u32 index, Result res, ui_view** errorView) {
-    *errorView = error_display_res(data, action_install_cias_draw_top, res, "Failed to install CIA file.");
+    if(res == R_APP_BAD_DATA) {
+        *errorView = error_display_res(data, action_install_cias_draw_top, res,
+                                       "Refused unsafe or invalid CIA.\nOnly SD apps/updates/DLC allowed.");
+    } else {
+        *errorView = error_display_res(data, action_install_cias_draw_top, res, "Failed to install CIA file.");
+    }
     return true;
 }
 

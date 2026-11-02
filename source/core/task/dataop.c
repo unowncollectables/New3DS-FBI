@@ -271,24 +271,33 @@ static void task_data_op_thread(void* arg) {
                 break;
             } else if(res != R_APP_SKIPPED) {
                 ui_view* errorView = NULL;
-                bool proceed = data->error(data->data, data->processed, res, &errorView);
+                bool proceed = true;
+                if(data->error != NULL) {
+                    proceed = data->error(data->data, data->processed, res, &errorView);
+                }
 
                 if(errorView != NULL) {
                     svcWaitSynchronization(errorView->active, U64_MAX);
                 }
 
-                ui_view* retryView = prompt_display_yes_no("Confirmation", "Retry?", COLOR_TEXT, data, NULL, task_data_op_retry_onresponse);
-                if(retryView != NULL) {
-                    svcWaitSynchronization(retryView->active, U64_MAX);
-
-                    if(data->retryResponse) {
-                        if(proceed) {
-                            data->processed--;
-                        } else {
-                            data->processed = 0;
-                        }
-                    } else if(!proceed) {
+                if(data->continueOnError) {
+                    if(!proceed) {
                         break;
+                    }
+                } else {
+                    ui_view* retryView = prompt_display_yes_no("Confirmation", "Retry?", COLOR_TEXT, data, NULL, task_data_op_retry_onresponse);
+                    if(retryView != NULL) {
+                        svcWaitSynchronization(retryView->active, U64_MAX);
+
+                        if(data->retryResponse) {
+                            if(proceed) {
+                                data->processed--;
+                            } else {
+                                data->processed = 0;
+                            }
+                        } else if(!proceed) {
+                            break;
+                        }
                     }
                 }
             }

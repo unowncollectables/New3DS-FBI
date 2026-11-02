@@ -1,48 +1,35 @@
-# Hardware testing — `url-installs`
+# Hardware testing — `batch-cias`
 
-Stacked on `new3ds-only`. Artifacts:
-- `output/3ds-arm/3ds/FBI/FBI.3dsx`
-- `output/3ds-arm/FBI.cia`
+Stacked on `url-installs`. Artifacts under `output/3ds-arm/`.
 
-Also run the `new3ds-only` TESTING.md checklist on this build first.
+## Setup
+- [ ] Create `sdmc:/cias` (app also creates it) and copy several **homebrew app** `.cia` files
 
-## Menu changes
-- [ ] Remote Install no longer lists “Receive URLs over the network”
-- [ ] Entries present: Scan QR Code, Manually enter URLs, **Install from GitHub release**, Repeat/Forget last request
+## Batch menu
+- [ ] Main Menu → **Batch CIAs (/cias)** appears
+- [ ] Empty `/cias` → clear “No .cia files” message
+- [ ] With CIAs → shows count; options **Install all** / **Select which to install**
 
-## Typed URL install
-- [ ] Enter `https://…/Something.cia` (known-good **homebrew app** CIA) → confirm → progress shows bytes, speed, ETA
-- [ ] B cancels mid-download/install → “cancelled”; no half-installed title
-- [ ] Bad URL / offline → clear error; retry prompt works; no crash
-- [ ] `.3dsx` URL installs under `/3ds/...`; cancel deletes partial file
+## Install all
+- [ ] Choose Install all → asked “Delete after install?” → choose **No**
+- [ ] Confirm install → overall `N / total` plus current filename, bytes, speed, ETA
+- [ ] All safe CIAs install to SD; titles appear under Titles
+- [ ] B cancels mid-batch; partial progress stops; summary still shown; no bricks
 
-## QR install
-- [ ] Scan QR containing a homebrew CIA URL → same install path as typed URL
-- [ ] B returns from camera; X switches camera
+## Select subset
+- [ ] Select which → A toggles (enabled/disabled colors); X starts install of enabled only
+- [ ] Nothing selected + X → “No CIAs selected”
 
-## GitHub release install
-- [ ] Enter `owner/repo` (public repo with `.cia`/`.3dsx` on latest release) → asset list with sizes
-- [ ] Also accept `https://github.com/owner/repo`
-- [ ] Reject garbage / invalid names with a clear message
-- [ ] Select a `.cia` asset → confirm → installs with progress; B cancels safely
-- [ ] Repo with no `.cia`/`.3dsx` assets → “no .cia/.3dsx assets”
-- [ ] Unknown repo → “not found” (HTTP 404)
-- [ ] If rate-limited (403/429) → rate-limit message (optional; hard to force)
-- [ ] Low SD space (fill card or pick huge asset) → “Not enough free space” before download when size known
+## Delete-after (optional)
+- [ ] Default path with **No** leaves files in `/cias`
+- [ ] With **Yes**, only **successfully** installed CIAs are deleted from `/cias`; failed ones remain
 
-## Safety checks (no bricks) — required
-- [ ] URL/GitHub install of a **system** CIA (category `00040010` / `00040030` / `00040138` NATIVE_FIRM, etc.) is **refused** with “Refused unsafe or invalid CIA…”
-- [ ] Local Files → Install CIA of a system title is **refused** the same way
-- [ ] Successful installs only land on **SD** (Titles list, not NAND system)
-- [ ] Only categories allowed: `00040000` (app), `0004000E` (update), `0004008C` (DLC)
-- [ ] CIA header must parse (`cia_get_title_id`); truncated/garbage CIA → refused
-- [ ] Failed/cancelled CIA install uses `AM_CancelCIAInstall` rollback — title not left half-installed
-- [ ] Install path never calls `AM_InstallFirm` / never writes NATIVE_FIRM
-- [ ] Install path never calls `AM_DeleteTitle` (replace uses `AM_StartCiaInstallOverwrite`)
-- [ ] Tickets for non-allowed title IDs refused on URL install
-- [ ] After refused system CIA attempt: Home Menu, Settings, and system still boot normally
-- [ ] Do **not** test with real system NAND CIAs beyond confirming refusal; do not force-install firmwares
+## Errors / summary
+- [ ] Mix a renamed non-CIA or truncated file → per-file error, batch continues, summary lists failed count
+- [ ] Summary shows succeeded / failed / skipped unsafe
 
-## Regression
-- [ ] Update FBI (self-update) still works with a normal FBI.cia/3dsx release
-- [ ] Titles / Files menus still open
+## Safety (no bricks) — required
+- [ ] System/firmware CIA in `/cias` is skipped or refused (allowlist); never installed to NAND
+- [ ] Header validated via `cia_get_title_id` before AM install
+- [ ] Uses `AM_StartCiaInstallOverwrite` + cancel rollback; no `AM_DeleteTitle` / no `AM_InstallFirm`
+- [ ] After tests, Home Menu / Settings still work
