@@ -13,7 +13,7 @@ LIBRARIES += curl mbedtls mbedx509 mbedcrypto jansson z citro3d ctru
 
 EXTRA_OUTPUT_FILES := servefiles
 
-BUILD_FLAGS := -Wno-format-truncation
+BUILD_FLAGS := -Wno-format-truncation -D__3DS__
 
 VERSION_PARTS := $(subst ., ,$(shell git describe --tags --abbrev=0))
 
