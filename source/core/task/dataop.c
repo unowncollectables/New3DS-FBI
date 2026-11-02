@@ -32,6 +32,30 @@ static Result task_data_op_check_running(data_op_data* data) {
     return res;
 }
 
+
+typedef struct {
+    data_op_data* data;
+    u32 srcHandle;
+    void* buffer;
+    u64 offset;
+    u32 size;
+    u32 bytesRead;
+    Result res;
+    Handle doneEvent;
+} data_op_prefetch_t;
+
+/* Prefetch the next SD read on New 3DS core 2 while the main copy thread
+   writes the current buffer to AM. Different FS handles (SD vs AM) make
+   the overlap safe. */
+static void task_data_op_prefetch_thread(void* arg) {
+    data_op_prefetch_t* p = (data_op_prefetch_t*) arg;
+
+    p->bytesRead = 0;
+    p->res = p->data->readSrc(p->data->data, p->srcHandle, &p->bytesRead, p->buffer, p->offset, p->size);
+
+    svcSignalEvent(p->doneEvent);
+}
+
 static Result task_data_op_copy(data_op_data* data, u32 index) {
     data->currProcessed = 0;
     data->currTotal = 0;
@@ -58,59 +82,138 @@ static Result task_data_op_copy(data_op_data* data, u32 index) {
                         res = R_APP_BAD_DATA;
                     }
                 } else {
-                    u8* buffer = (u8*) calloc(1, data->bufferSize);
-                    if(buffer != NULL) {
+                    /* Double-buffered copy: overlap SD reads (core 2) with AM writes. */
+                    u8* buffers[2] = {NULL, NULL};
+                    buffers[0] = (u8*) calloc(1, data->bufferSize);
+                    buffers[1] = (u8*) calloc(1, data->bufferSize);
+
+                    if(buffers[0] != NULL && buffers[1] != NULL) {
                         u32 dstHandle = 0;
 
                         u64 ioStartTime = 0;
                         u64 lastBytesPerSecondUpdate = osGetTime();
                         u32 bytesSinceUpdate = 0;
 
-                        bool firstRun = true;
-                        while(data->currProcessed < data->currTotal) {
-                            if(R_FAILED(res = task_data_op_check_running(data))) {
-                                break;
-                            }
+                        data_op_prefetch_t prefetch;
+                        memset(&prefetch, 0, sizeof(prefetch));
+                        prefetch.data = data;
+                        prefetch.srcHandle = srcHandle;
 
-                            u32 bytesRead = 0;
-                            if(R_FAILED(res = data->readSrc(data->data, srcHandle, &bytesRead, buffer, data->currProcessed, data->bufferSize))) {
-                                break;
-                            }
+                        Thread prefetchThread = NULL;
+                        bool prefetchActive = false;
 
-                            if(firstRun) {
-                                firstRun = false;
+                        u32 bytesRead = 0;
+                        int cur = 0;
 
-                                if(R_FAILED(res = data->openDst(data->data, index, buffer, data->currTotal, &dstHandle))) {
-                                    break;
+                        if(R_SUCCEEDED(res = data->readSrc(data->data, srcHandle, &bytesRead, buffers[0], 0, data->bufferSize))) {
+                            if(R_SUCCEEDED(res = data->openDst(data->data, index, buffers[0], data->currTotal, &dstHandle))) {
+                                while(data->currProcessed < data->currTotal) {
+                                    if(R_FAILED(res = task_data_op_check_running(data))) {
+                                        break;
+                                    }
+
+                                    if(bytesRead == 0) {
+                                        res = R_APP_BAD_DATA;
+                                        break;
+                                    }
+
+                                    u64 nextOffset = data->currProcessed + bytesRead;
+                                    bool needPrefetch = nextOffset < data->currTotal;
+
+                                    if(needPrefetch) {
+                                        if(R_SUCCEEDED(svcCreateEvent(&prefetch.doneEvent, RESET_STICKY))) {
+                                            prefetch.buffer = buffers[1 - cur];
+                                            prefetch.offset = nextOffset;
+                                            prefetch.size = data->bufferSize;
+                                            prefetch.bytesRead = 0;
+                                            prefetch.res = 0;
+
+                                            /* Affinity 2 = New 3DS syscore; falls back sync if create fails. */
+                                            prefetchThread = threadCreate(task_data_op_prefetch_thread, &prefetch, 0x4000, 0x18, 2, false);
+                                            if(prefetchThread != NULL) {
+                                                prefetchActive = true;
+                                            } else {
+                                                svcCloseHandle(prefetch.doneEvent);
+                                                prefetch.doneEvent = 0;
+
+                                                if(R_FAILED(res = data->readSrc(data->data, srcHandle, &prefetch.bytesRead,
+                                                                                buffers[1 - cur], nextOffset, data->bufferSize))) {
+                                                    break;
+                                                }
+                                            }
+                                        } else {
+                                            if(R_FAILED(res = data->readSrc(data->data, srcHandle, &prefetch.bytesRead,
+                                                                            buffers[1 - cur], nextOffset, data->bufferSize))) {
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    u32 bytesWritten = 0;
+                                    if(R_FAILED(res = data->writeDst(data->data, dstHandle, &bytesWritten,
+                                                                     buffers[cur], data->currProcessed, bytesRead))) {
+                                        break;
+                                    }
+
+                                    /* Prefetch offset assumed a full write; refuse short writes. */
+                                    if(bytesWritten != bytesRead) {
+                                        res = R_APP_BAD_DATA;
+                                        break;
+                                    }
+
+                                    data->currProcessed += bytesWritten;
+                                    bytesSinceUpdate += bytesWritten;
+
+                                    u64 time = osGetTime();
+                                    u64 elapsed = time - lastBytesPerSecondUpdate;
+                                    if(elapsed >= 1000) {
+                                        data->bytesPerSecond = (u32) (bytesSinceUpdate / (elapsed / 1000.0f));
+
+                                        if(ioStartTime != 0) {
+                                            data->estimatedRemainingSeconds = (u32) ((data->currTotal - data->currProcessed) / (data->currProcessed / ((time - ioStartTime) / 1000.0f)));
+                                        } else {
+                                            data->estimatedRemainingSeconds = 0;
+                                        }
+
+                                        if(ioStartTime == 0 && data->currProcessed > 0) {
+                                            ioStartTime = time;
+                                        }
+
+                                        bytesSinceUpdate = 0;
+                                        lastBytesPerSecondUpdate = time;
+                                    }
+
+                                    if(needPrefetch) {
+                                        if(prefetchActive) {
+                                            svcWaitSynchronization(prefetch.doneEvent, U64_MAX);
+                                            threadJoin(prefetchThread, U64_MAX);
+                                            threadFree(prefetchThread);
+                                            prefetchThread = NULL;
+                                            prefetchActive = false;
+                                            svcCloseHandle(prefetch.doneEvent);
+                                            prefetch.doneEvent = 0;
+
+                                            if(R_FAILED(prefetch.res)) {
+                                                res = prefetch.res;
+                                                break;
+                                            }
+                                        }
+
+                                        bytesRead = prefetch.bytesRead;
+                                        cur = 1 - cur;
+                                    } else {
+                                        bytesRead = 0;
+                                    }
                                 }
                             }
+                        }
 
-                            u32 bytesWritten = 0;
-                            if(R_FAILED(res = data->writeDst(data->data, dstHandle, &bytesWritten, buffer, data->currProcessed, bytesRead))) {
-                                break;
-                            }
-
-                            data->currProcessed += bytesWritten;
-                            bytesSinceUpdate += bytesWritten;
-
-                            u64 time = osGetTime();
-                            u64 elapsed = time - lastBytesPerSecondUpdate;
-                            if(elapsed >= 1000) {
-                                data->bytesPerSecond = (u32) (bytesSinceUpdate / (elapsed / 1000.0f));
-
-                                if(ioStartTime != 0) {
-                                    data->estimatedRemainingSeconds = (u32) ((data->currTotal - data->currProcessed) / (data->currProcessed / ((time - ioStartTime) / 1000.0f)));
-                                } else {
-                                    data->estimatedRemainingSeconds = 0;
-                                }
-
-                                if(ioStartTime == 0 && data->currProcessed > 0) {
-                                    ioStartTime = time;
-                                }
-
-                                bytesSinceUpdate = 0;
-                                lastBytesPerSecondUpdate = time;
-                            }
+                        if(prefetchActive && prefetchThread != NULL) {
+                            svcWaitSynchronization(prefetch.doneEvent, U64_MAX);
+                            threadJoin(prefetchThread, U64_MAX);
+                            threadFree(prefetchThread);
+                            svcCloseHandle(prefetch.doneEvent);
+                            prefetchActive = false;
                         }
 
                         if(dstHandle != 0) {
@@ -119,11 +222,12 @@ static Result task_data_op_copy(data_op_data* data, u32 index) {
                                 res = closeDstRes;
                             }
                         }
-
-                        free(buffer);
                     } else {
                         res = R_APP_OUT_OF_MEMORY;
                     }
+
+                    free(buffers[0]);
+                    free(buffers[1]);
                 }
             }
 

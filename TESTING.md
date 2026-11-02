@@ -1,35 +1,30 @@
-# Hardware testing — `batch-cias`
+# Hardware testing — `fast-installs`
 
-Stacked on `url-installs`. Artifacts under `output/3ds-arm/`.
+Stacked on `batch-cias`. Artifacts under `output/3ds-arm/`.
+
+## What changed
+- Double-buffered CIA/file copy: SD read on New 3DS core 2 overlaps AM/dst write
+- Install buffer size raised to **2 MiB** for CIA / ticket / URL installs (peak ~4 MiB with two buffers)
+- Sync fallback if the prefetch thread cannot be created
+- Safety rules unchanged (allowlist, header check, overwrite+cancel, no DeleteTitle/InstallFirm)
 
 ## Setup
-- [ ] Create `sdmc:/cias` (app also creates it) and copy several **homebrew app** `.cia` files
+- [ ] Same as `batch-cias`: several homebrew app `.cia` files under `sdmc:/cias`
+- [ ] Also keep one CIA reachable from Files for single Install CIA
 
-## Batch menu
-- [ ] Main Menu → **Batch CIAs (/cias)** appears
-- [ ] Empty `/cias` → clear “No .cia files” message
-- [ ] With CIAs → shows count; options **Install all** / **Select which to install**
+## Speed / progress
+- [ ] Install CIA (Files) shows progress, speed, ETA; completes without hang
+- [ ] Batch Install all shows overall `N / total` plus current file speed/ETA
+- [ ] Subjectively faster than `batch-cias` tip on large CIAs (multi‑MB+); no crash
+- [ ] B cancels mid-install; AM rolls back; no partial corrupt title
 
-## Install all
-- [ ] Choose Install all → asked “Delete after install?” → choose **No**
-- [ ] Confirm install → overall `N / total` plus current filename, bytes, speed, ETA
-- [ ] All safe CIAs install to SD; titles appear under Titles
-- [ ] B cancels mid-batch; partial progress stops; summary still shown; no bricks
-
-## Select subset
-- [ ] Select which → A toggles (enabled/disabled colors); X starts install of enabled only
-- [ ] Nothing selected + X → “No CIAs selected”
-
-## Delete-after (optional)
-- [ ] Default path with **No** leaves files in `/cias`
-- [ ] With **Yes**, only **successfully** installed CIAs are deleted from `/cias`; failed ones remain
-
-## Errors / summary
-- [ ] Mix a renamed non-CIA or truncated file → per-file error, batch continues, summary lists failed count
-- [ ] Summary shows succeeded / failed / skipped unsafe
+## Correctness
+- [ ] Installed titles launch; appear under Titles
+- [ ] Batch summary still lists succeeded / failed / skipped
+- [ ] Mix bad/truncated CIA → error for that file, batch continues
 
 ## Safety (no bricks) — required
-- [ ] System/firmware CIA in `/cias` is skipped or refused (allowlist); never installed to NAND
-- [ ] Header validated via `cia_get_title_id` before AM install
-- [ ] Uses `AM_StartCiaInstallOverwrite` + cancel rollback; no `AM_DeleteTitle` / no `AM_InstallFirm`
+- [ ] System/firmware CIA refused (allowlist); never NAND
+- [ ] Header validated before AM install
+- [ ] `AM_StartCiaInstallOverwrite` + cancel on failure; no `AM_DeleteTitle` / no `AM_InstallFirm`
 - [ ] After tests, Home Menu / Settings still work

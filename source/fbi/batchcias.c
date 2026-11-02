@@ -256,9 +256,9 @@ static void batch_cias_install_update(ui_view* view, void* data, float* progress
     }
 
     snprintf(text, PROGRESS_TEXT_MAX,
-             "%u / %u  %s\n%.2f %s / %.2f %s\n%.2f %s/s, ETA %s",
-             batchData->installInfo.processed + (batchData->installInfo.finished ? 0 : 1),
-             batchData->installInfo.total,
+             "%lu / %lu  %s\n%.2f %s / %.2f %s\n%.2f %s/s, ETA %s",
+             (unsigned long) (batchData->installInfo.processed + (batchData->installInfo.finished ? 0 : 1)),
+             (unsigned long) batchData->installInfo.total,
              name,
              ui_get_display_size(batchData->installInfo.currProcessed),
              ui_get_display_size_units(batchData->installInfo.currProcessed),
@@ -322,7 +322,7 @@ static void batch_cias_prepare_selected_and_ask(batch_cias_data* data) {
 
     if(linked_list_size(&data->selected) == 0) {
         char buf[160];
-        snprintf(buf, sizeof(buf), "Nothing safe to install.\nSkipped unsafe: %u", data->skippedUnsafe);
+        snprintf(buf, sizeof(buf), "Nothing safe to install.\nSkipped unsafe: %lu", (unsigned long) data->skippedUnsafe);
         prompt_display_notify("Batch CIAs", buf, COLOR_TEXT, NULL, NULL, NULL);
         batch_cias_free_data(data);
         return;
@@ -340,7 +340,7 @@ static void batch_cias_start_install(batch_cias_data* data) {
 
     data->installInfo.data = data;
     data->installInfo.op = DATAOP_COPY;
-    data->installInfo.bufferSize = 1024 * 1024;
+    data->installInfo.bufferSize = 2 * 1024 * 1024;
     data->installInfo.copyEmpty = false;
     data->installInfo.continueOnError = true;
 
