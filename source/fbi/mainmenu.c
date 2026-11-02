@@ -12,6 +12,8 @@
 #include "extras.h"
 #include "savebackup.h"
 #include "sysinfo.h"
+#include "jukebox.h"
+#include "cardcalc.h"
 #include "task/uitask.h"
 #include "../core/core.h"
 
@@ -139,13 +141,47 @@ static void about_draw_top(ui_view* view, void* data, float x1, float y1, float 
     screen_draw_string(credit, x1 + (x2 - x1 - w) / 2, y2 - h - 6.0f, 0.45f, 0.45f, COLOR_HINT, true);
 }
 
+static float s_aboutTitleX1, s_aboutTitleY1, s_aboutTitleX2, s_aboutTitleY2;
+static int s_aboutTitleTaps = 0;
+static u64 s_aboutTitleTapMs = 0;
+
 static void about_update(ui_view* view, void* data, float* progress, char* text) {
     (void) data;
     (void) progress;
     if(text != NULL) {
         text[0] = '\0';
     }
-    if(hidKeysDown() & (KEY_B | KEY_A | KEY_START)) {
+
+    u32 down = hidKeysDown();
+    u32 held = hidKeysHeld();
+
+    /* Hidden: hold L+R and press Y */
+    if((held & (KEY_L | KEY_R)) == (KEY_L | KEY_R) && (down & KEY_Y)) {
+        cardcalc_open();
+        return;
+    }
+
+    if(down & KEY_TOUCH) {
+        touchPosition pos;
+        hidTouchRead(&pos);
+        if(pos.px >= s_aboutTitleX1 && pos.px <= s_aboutTitleX2 &&
+           pos.py >= s_aboutTitleY1 && pos.py <= s_aboutTitleY2) {
+            u64 now = osGetTime();
+            if(now - s_aboutTitleTapMs > 2000) {
+                s_aboutTitleTaps = 0;
+            }
+            s_aboutTitleTapMs = now;
+            s_aboutTitleTaps++;
+            if(s_aboutTitleTaps >= 5) {
+                s_aboutTitleTaps = 0;
+                jukebox_open();
+                return;
+            }
+        }
+    }
+
+    if(down & (KEY_B | KEY_A | KEY_START)) {
+        s_aboutTitleTaps = 0;
         ui_pop();
         info_destroy(view);
     }
@@ -163,7 +199,13 @@ static void about_draw_bottom(ui_view* view, void* data, float x1, float y1, flo
 
     snprintf(line, sizeof(line), "New3DS FBI  v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
     screen_get_string_size(&w, &h, line, 0.6f, 0.6f);
-    screen_draw_string(line, x1 + (x2 - x1 - w) / 2, y, 0.6f, 0.6f, COLOR_TEXT, true);
+    float titleX = x1 + (x2 - x1 - w) / 2;
+    screen_draw_string(line, titleX, y, 0.6f, 0.6f, COLOR_TEXT, true);
+    /* Hit box for hidden title taps (touch coords are absolute screen space). */
+    s_aboutTitleX1 = titleX - 8.0f;
+    s_aboutTitleY1 = y - 4.0f;
+    s_aboutTitleX2 = titleX + w + 8.0f;
+    s_aboutTitleY2 = y + h + 4.0f;
     y += h + 10.0f;
 
     const char* body =
@@ -184,6 +226,8 @@ static void about_draw_bottom(ui_view* view, void* data, float x1, float y1, flo
 }
 
 void about_open(void) {
+    s_aboutTitleTaps = 0;
+    s_aboutTitleTapMs = 0;
     ui_view* view = info_display("About / Credits", "A / B = back", false, NULL, about_update, about_draw_top);
     if(view != NULL) {
         view->drawBottom = about_draw_bottom;
