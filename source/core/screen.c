@@ -91,7 +91,7 @@ static void screen_bind_fbi_shader(void) {
         AttrInfo_AddLoader(attrInfo, 1, GPU_FLOAT, 2);
     }
 
-    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
     screen_set_blend(0, false, false);
 
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shaderInstanceGetUniformLocation(program.vertexShader, "projection"),
@@ -165,7 +165,7 @@ void screen_init() {
     AttrInfo_AddLoader(attrInfo, 0, GPU_FLOAT, 3);
     AttrInfo_AddLoader(attrInfo, 1, GPU_FLOAT, 2);
 
-    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
 
     screen_set_blend(0, false, false);
 
@@ -281,6 +281,7 @@ void screen_draw_rect(float x, float y, float width, float height, u32 colorAbgr
     C2D_Flush();
     C2D_Prepare();
     C2D_SceneTarget(current_screen == GFX_TOP ? target_top : target_bottom);
+    C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
     C2D_DrawRectSolid(x, y, 0.5f, width, height, c2d);
     C2D_Flush();
 
