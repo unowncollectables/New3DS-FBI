@@ -240,7 +240,21 @@ static void action_paste_contents_update(ui_view* view, void* data, float* progr
         info_destroy(view);
 
         if(R_SUCCEEDED(pasteData->pasteInfo.result)) {
-            prompt_display_notify("Success", "Contents pasted.", COLOR_TEXT, NULL, NULL, NULL);
+            if(clipboard_is_move()) {
+                FS_Path* srcPath = fs_make_path_utf8(clipboard_get_path());
+                if(srcPath != NULL) {
+                    /* Best-effort remove source after successful paste (move). */
+                    Result dr = FSUSER_DeleteDirectoryRecursively(clipboard_get_archive(), *srcPath);
+                    if(R_FAILED(dr)) {
+                        FSUSER_DeleteFile(clipboard_get_archive(), *srcPath);
+                    }
+                    fs_free_path_utf8(srcPath);
+                }
+                clipboard_clear();
+                prompt_display_notify("Moved!", "Files moved to the new folder.", COLOR_TEXT, NULL, NULL, NULL);
+            } else {
+                prompt_display_notify("Copied!", "Files pasted.", COLOR_TEXT, NULL, NULL, NULL);
+            }
         }
 
         action_paste_contents_free_data(pasteData);
@@ -300,7 +314,12 @@ static void action_paste_contents_loading_update(ui_view* view, void* data, floa
             loadingData->pasteData->pasteInfo.total = linked_list_size(&loadingData->pasteData->contents);
             loadingData->pasteData->pasteInfo.processed = loadingData->pasteData->pasteInfo.total;
 
-            prompt_display_yes_no("Confirmation", "Paste clipboard contents to the current directory?", COLOR_TEXT, loadingData->pasteData, action_paste_contents_draw_top, action_paste_contents_onresponse);
+            {
+                const char* msg = clipboard_is_move()
+                    ? "Move the cut files into this folder?\n\nYes = move them here\nNo = cancel"
+                    : "Paste (copy) the clipboard files\ninto this folder?\n\nYes = paste\nNo = cancel";
+                prompt_display_yes_no(clipboard_is_move() ? "Move files?" : "Paste files?", msg, COLOR_TEXT, loadingData->pasteData, action_paste_contents_draw_top, action_paste_contents_onresponse);
+            }
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate clipboard content list.");
 

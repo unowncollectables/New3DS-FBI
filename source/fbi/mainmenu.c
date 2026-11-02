@@ -10,11 +10,15 @@
 #include "selfupdate.h"
 #include "ftp.h"
 #include "extras.h"
+#include "savebackup.h"
+#include "sysinfo.h"
 #include "task/uitask.h"
 #include "../core/core.h"
 
 /* Everyday menu (kid-friendly labels). */
-static list_item mm_sd = {"Browse my SD card", COLOR_TEXT, files_open_sd};
+static list_item mm_sd = {"My SD card files", COLOR_TEXT, files_open_sd};
+static list_item mm_saves = {"Back up my saves", COLOR_TEXT, savebackup_open};
+static list_item mm_sysinfo = {"About my 3DS", COLOR_TEXT, sysinfo_open};
 static list_item mm_titles = {"My installed games", COLOR_TEXT, titles_open};
 static list_item mm_pending = {"Unfinished installs", COLOR_TEXT, pendingtitles_open};
 static list_item mm_tickets = {"Game tickets", COLOR_TEXT, tickets_open};
@@ -40,7 +44,13 @@ static list_item adv_leftovers = {"Find leftover tickets / installs", COLOR_TEXT
 
 static const char* mainmenu_tooltip(list_item* selected) {
     if(selected == &mm_sd) {
-        return "Look at files on your SD card. You can install games (.cia) from here too.";
+        return "Browse files on your SD card. Copy, move, rename, delete, or install a .cia (asks first).";
+    }
+    if(selected == &mm_saves) {
+        return "Back up game saves to the SD card, or restore an older backup (always asks first).";
+    }
+    if(selected == &mm_sysinfo) {
+        return "See model, system version, battery, SD space, and network info. Read-only.";
     }
     if(selected == &mm_titles) {
         return "See games and apps already installed on this system.";
@@ -79,7 +89,7 @@ static const char* mainmenu_tooltip(list_item* selected) {
         return "Expert tools that can change system files. Only open if you understand them.";
     }
     if(selected == &mm_about) {
-        return "Who made this app. New3DS FBI is built on FBI by Steveice10.";
+        return "Credits — New3DS FBI is built on FBI by Steveice10.";
     }
     return "Choose an item with A.";
 }
@@ -228,6 +238,8 @@ static void mainmenu_rebuild(linked_list* items) {
     linked_list_clear(items);
 
     linked_list_add(items, &mm_sd);
+    linked_list_add(items, &mm_saves);
+    linked_list_add(items, &mm_sysinfo);
     linked_list_add(items, &mm_titles);
     linked_list_add(items, &mm_pending);
     linked_list_add(items, &mm_tickets);

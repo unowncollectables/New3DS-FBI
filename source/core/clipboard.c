@@ -9,6 +9,7 @@
 
 static bool clipboard_has = false;
 static bool clipboard_contents_only;
+static bool clipboard_move = false;
 
 static FS_Archive clipboard_archive;
 static char clipboard_path[FILE_PATH_MAX];
@@ -27,6 +28,14 @@ char* clipboard_get_path() {
 
 bool clipboard_is_contents_only() {
     return clipboard_contents_only;
+}
+
+void clipboard_set_move(bool move) {
+    clipboard_move = move;
+}
+
+bool clipboard_is_move() {
+    return clipboard_move;
 }
 
 Result clipboard_set_contents(FS_Archive archive, const char* path, bool contentsOnly) {
@@ -51,6 +60,7 @@ void clipboard_clear() {
 
     clipboard_has = false;
     clipboard_contents_only = false;
+    clipboard_move = false;
 
     clipboard_archive = 0;
     memset(clipboard_path, '\0', FILE_PATH_MAX);
