@@ -17,6 +17,7 @@ Requires [devkitARM](http://sourceforge.net/projects/devkitpro/files/devkitARM/)
   * Automatically imports title seeds on installation, either from the Internet or the SD card.
 * Browse and delete pending titles (downloaded updates, in-progress eShop titles, etc).
 * Customize appearance by placing replacements for RomFS resources in "sdmc:/fbi/theme/".
+* **Update my ports** (local only): place SoulSilver (`000400000F7D4000`) / Platinum (`000400000F7D3D00`) CIAs you built in `sdmc:/fbi/ports/`. Compares installed vs CIA version and can overwrite-install in place (save data preserved; no title delete; no downloads or ROM/CIA hosting).
 
 * Only available when run from a CIA, 3DS, or a 3DSX under Luma3DS:
   * Browse and modify CTR NAND, TWL NAND, and system save data.

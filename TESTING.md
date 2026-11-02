@@ -1,27 +1,35 @@
-# Hardware testing — `ui-refresh`
+# Hardware testing — `port-updater`
 
-Stacked on `master` (includes fast-installs). Artifacts under `output/3ds-arm/`.
+Stacked on `master` (`ui-refresh`). Artifacts under `output/3ds-arm/`.
 
 ## What changed
-- citro2d linked for solid rects + smooth progress bars (lerp toward target at 60fps)
-- New original theme PNGs + `textcolor.cfg` (cool slate chrome, readable indigo text)
-- SD override unchanged: `sdmc:/fbi/theme/` still wins over romfs
-- Clearer confirm dialogs (panel + wrapped text); safety refusals use danger color / clearer copy
-- Top meta info panel spacing + accent/hint coloring for publisher / description
-- No changes to install allowlist / AM safety paths
+- Main Menu → **Update my ports**
+- **100% local**: scans `sdmc:/fbi/ports/` only; never downloads; never contacts GitHub/network for ports
+- Accepts only SoulSilver `000400000F7D4000` and Platinum `000400000F7D3D00`
+- Shows installed version vs CIA version (SMDH name hint when present; else size fallback)
+- One-tap update uses `AM_StartCiaInstallOverwrite` — **does not delete** the title first; save data preserved; cancel/failure rolls back
+- Existing allowlist + CIA header validation still apply; no `AM_DeleteTitle` / no `AM_InstallFirm`
 
-## Visual / theming
-- [ ] Main menu, lists, and bars render without flicker at ~60fps
-- [ ] Progress installs show a smooth blue bar (not stuttery crop jumps)
-- [ ] Text is readable on top/bottom bars and prompts
-- [ ] Copy custom PNGs / `textcolor.cfg` to `sdmc:/fbi/theme/` → overrides apply on next launch
+## Setup (local CIAs you built)
+- [ ] Create `sdmc:/fbi/ports/` (app also creates it)
+- [ ] Copy locally built SoulSilver and/or Platinum `.cia` files into that folder
+- [ ] Do **not** expect the app to fetch or host anything
 
-## Dialogs / safety
-- [ ] Yes/No prompts show wrapped text inside a light panel; buttons remain tappable
-- [ ] Installing / batching a system or unsafe CIA shows a clear **safety refusal** (danger styling / wording); install does not proceed
-- [ ] Batch “nothing safe” notify uses refusal styling
+## Screen
+- [ ] Main Menu shows **Update my ports**
+- [ ] Empty / no matching titles → clear local-only instructions + title IDs
+- [ ] Matching CIAs listed with `installed … -> CIA …` (and name hint when SMDH present)
+- [ ] Colors: not installed (warning), different version (accent), same version (success)
+- [ ] X refreshes installed-version labels after an update
 
-## Regression
-- [ ] CIA install / batch / URL install still works for allowlisted homebrew
-- [ ] Cancel (B) still rolls back; Home Menu / Settings OK after tests
-- [ ] No new crashes when opening Titles / Files / Batch CIAs
+## Update behavior (pt12u)
+- [ ] Confirm text states overwrite install, **no delete**, saves preserved, rollback on failure
+- [ ] A → Yes runs overwrite install with progress; B cancels mid-install safely
+- [ ] After success, title launches; **save data still present**
+- [ ] Wrong/other title CIA in `/fbi/ports/` is ignored by the filter (not listed)
+- [ ] Truncated/invalid CIA refused with safety message; previous title untouched
+
+## Safety
+- [ ] No network activity from this screen (no GitHub, no URL installs, no seed download on this path)
+- [ ] System/NAND/firmware CIAs never installed
+- [ ] Home Menu / Settings still work after tests

@@ -20,6 +20,7 @@ static list_item ext_save_data = {"Ext Save Data", COLOR_TEXT, extsavedata_open}
 static list_item system_save_data = {"System Save Data", COLOR_TEXT, systemsavedata_open};
 static list_item remote_install = {"Remote Install", COLOR_TEXT, remoteinstall_open};
 static list_item batch_cias = {"Batch CIAs (/cias)", COLOR_TEXT, batchcias_open};
+static list_item port_updater = {"Update my ports", COLOR_TEXT, portupdater_open};
 static list_item update = {"Update", COLOR_TEXT, update_open};
 
 static void mainmenu_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -59,6 +60,7 @@ static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_
         linked_list_add(items, &system_save_data);
         linked_list_add(items, &remote_install);
         linked_list_add(items, &batch_cias);
+        linked_list_add(items, &port_updater);
         linked_list_add(items, &update);
     }
 }
