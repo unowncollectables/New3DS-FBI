@@ -243,7 +243,7 @@ static bool action_install_url_error(void* data, u32 index, Result res, ui_view*
 
     if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, action_install_url_draw_top, res,
-                                       "Refused unsafe or invalid CIA/ticket.\nOnly SD apps/updates/DLC allowed.");
+                                       "Safety check refused this download.\n\nOnly SD apps / updates / DLC\nare allowed. System/NAND titles\nand firmware are never installed.");
         return true;
     }
 

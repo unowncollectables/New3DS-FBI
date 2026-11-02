@@ -9,10 +9,17 @@
 #include "../screen.h"
 #include "../../fbi/resources.h"
 
+#define UI_TEXT_SCALE 0.55f
+#define UI_PAD 12.0f
+#define PROGRESS_BAR_W 280.0f
+#define PROGRESS_BAR_H 22.0f
+#define PROGRESS_LERP 0.18f
+
 typedef struct {
     bool bar;
     void* data;
     float progress;
+    float displayProgress;
     char text[PROGRESS_TEXT_MAX];
     void (*update)(ui_view* view, void* data, float* progress, char* text);
     void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2);
@@ -23,6 +30,14 @@ static void info_update(ui_view* view, void* data, float bx1, float by1, float b
 
     if(infoData->update != NULL) {
         infoData->update(view, infoData->data, &infoData->progress, infoData->text);
+    }
+
+    /* Smooth toward target for 60fps-friendly bar motion. */
+    float delta = infoData->progress - infoData->displayProgress;
+    if(delta > -0.0005f && delta < 0.0005f) {
+        infoData->displayProgress = infoData->progress;
+    } else {
+        infoData->displayProgress += delta * PROGRESS_LERP;
     }
 }
 
@@ -39,33 +54,31 @@ static void info_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
 
     float textWidth;
     float textHeight;
-    screen_get_string_size(&textWidth, &textHeight, infoData->text, 0.5f, 0.5f);
+    screen_get_string_size_wrap(&textWidth, &textHeight, infoData->text, UI_TEXT_SCALE, UI_TEXT_SCALE, (x2 - x1) - UI_PAD * 2);
 
     float textX = x1 + (x2 - x1 - textWidth) / 2;
     float textY = y1 + (y2 - y1 - textHeight) / 2;
 
     if(infoData->bar) {
-        u32 progressBarBgWidth;
-        u32 progressBarBgHeight;
-        screen_get_texture_size(&progressBarBgWidth, &progressBarBgHeight, TEXTURE_PROGRESS_BAR_BG);
+        float barW = PROGRESS_BAR_W;
+        if(barW > (x2 - x1) - UI_PAD * 2) {
+            barW = (x2 - x1) - UI_PAD * 2;
+        }
 
-        float progressBarBgX = x1 + (x2 - x1 - progressBarBgWidth) / 2;
-        float progressBarBgY = y1 + (y2 - y1 - progressBarBgHeight) / 2;
-        screen_draw_texture(TEXTURE_PROGRESS_BAR_BG, progressBarBgX, progressBarBgY, progressBarBgWidth, progressBarBgHeight);
+        float barX = x1 + (x2 - x1 - barW) / 2;
+        float barY = y1 + (y2 - y1) / 2 - PROGRESS_BAR_H - 6.0f;
 
-        u32 progressBarContentWidth;
-        u32 progressBarContentHeight;
-        screen_get_texture_size(&progressBarContentWidth, &progressBarContentHeight, TEXTURE_PROGRESS_BAR_CONTENT);
+        /* Soft panel behind the bar */
+        screen_draw_rect(barX - 8.0f, barY - 8.0f, barW + 16.0f, PROGRESS_BAR_H + 16.0f, COLOR_PANEL, true);
+        screen_draw_progress_bar(barX, barY, barW, PROGRESS_BAR_H, infoData->displayProgress, COLOR_HINT, COLOR_ACCENT);
 
-        float progressBarContentX = x1 + (x2 - x1 - progressBarContentWidth) / 2;
-        float progressBarContentY = y1 + (y2 - y1 - progressBarContentHeight) / 2;
-        screen_draw_texture_crop(TEXTURE_PROGRESS_BAR_CONTENT, progressBarContentX, progressBarContentY, progressBarContentWidth * infoData->progress, progressBarContentHeight);
-
-        textX = x1 + (x2 - x1 - textWidth) / 2;
-        textY = progressBarBgY + progressBarBgHeight + 10;
+        textX = x1 + UI_PAD;
+        textY = barY + PROGRESS_BAR_H + 14.0f;
+        screen_draw_string_wrap(infoData->text, textX, textY, UI_TEXT_SCALE, UI_TEXT_SCALE, COLOR_TEXT, true, x2 - UI_PAD);
+        return;
     }
 
-    screen_draw_string(infoData->text, textX, textY, 0.5f, 0.5f, COLOR_TEXT, true);
+    screen_draw_string_wrap(infoData->text, x1 + UI_PAD, textY, UI_TEXT_SCALE, UI_TEXT_SCALE, COLOR_TEXT, true, x2 - UI_PAD);
 }
 
 ui_view* info_display(const char* name, const char* info, bool bar, void* data, void (*update)(ui_view* view, void* data, float* progress, char* text),
@@ -80,6 +93,7 @@ ui_view* info_display(const char* name, const char* info, bool bar, void* data, 
     infoData->bar = bar;
     infoData->data = data;
     infoData->progress = 0;
+    infoData->displayProgress = 0;
     snprintf(infoData->text, PROGRESS_TEXT_MAX, "Please wait...");
     infoData->update = update;
     infoData->drawTop = drawTop;

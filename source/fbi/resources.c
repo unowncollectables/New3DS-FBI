@@ -70,6 +70,18 @@ void resources_load() {
             screen_set_color(COLOR_TICKET_IN_USE, color);
         } else if(strcasecmp(key, "ticketnotinuse") == 0) {
             screen_set_color(COLOR_TICKET_NOT_IN_USE, color);
+        } else if(strcasecmp(key, "accent") == 0) {
+            screen_set_color(COLOR_ACCENT, color);
+        } else if(strcasecmp(key, "danger") == 0) {
+            screen_set_color(COLOR_DANGER, color);
+        } else if(strcasecmp(key, "warning") == 0) {
+            screen_set_color(COLOR_WARNING, color);
+        } else if(strcasecmp(key, "success") == 0) {
+            screen_set_color(COLOR_SUCCESS, color);
+        } else if(strcasecmp(key, "hint") == 0) {
+            screen_set_color(COLOR_HINT, color);
+        } else if(strcasecmp(key, "panel") == 0) {
+            screen_set_color(COLOR_PANEL, color);
         }
     }
 

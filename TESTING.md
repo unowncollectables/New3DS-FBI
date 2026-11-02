@@ -1,30 +1,27 @@
-# Hardware testing — `fast-installs`
+# Hardware testing — `ui-refresh`
 
-Stacked on `batch-cias`. Artifacts under `output/3ds-arm/`.
+Stacked on `master` (includes fast-installs). Artifacts under `output/3ds-arm/`.
 
 ## What changed
-- Double-buffered CIA/file copy: SD read on New 3DS core 2 overlaps AM/dst write
-- Install buffer size raised to **2 MiB** for CIA / ticket / URL installs (peak ~4 MiB with two buffers)
-- Sync fallback if the prefetch thread cannot be created
-- Safety rules unchanged (allowlist, header check, overwrite+cancel, no DeleteTitle/InstallFirm)
+- citro2d linked for solid rects + smooth progress bars (lerp toward target at 60fps)
+- New original theme PNGs + `textcolor.cfg` (cool slate chrome, readable indigo text)
+- SD override unchanged: `sdmc:/fbi/theme/` still wins over romfs
+- Clearer confirm dialogs (panel + wrapped text); safety refusals use danger color / clearer copy
+- Top meta info panel spacing + accent/hint coloring for publisher / description
+- No changes to install allowlist / AM safety paths
 
-## Setup
-- [ ] Same as `batch-cias`: several homebrew app `.cia` files under `sdmc:/cias`
-- [ ] Also keep one CIA reachable from Files for single Install CIA
+## Visual / theming
+- [ ] Main menu, lists, and bars render without flicker at ~60fps
+- [ ] Progress installs show a smooth blue bar (not stuttery crop jumps)
+- [ ] Text is readable on top/bottom bars and prompts
+- [ ] Copy custom PNGs / `textcolor.cfg` to `sdmc:/fbi/theme/` → overrides apply on next launch
 
-## Speed / progress
-- [ ] Install CIA (Files) shows progress, speed, ETA; completes without hang
-- [ ] Batch Install all shows overall `N / total` plus current file speed/ETA
-- [ ] Subjectively faster than `batch-cias` tip on large CIAs (multi‑MB+); no crash
-- [ ] B cancels mid-install; AM rolls back; no partial corrupt title
+## Dialogs / safety
+- [ ] Yes/No prompts show wrapped text inside a light panel; buttons remain tappable
+- [ ] Installing / batching a system or unsafe CIA shows a clear **safety refusal** (danger styling / wording); install does not proceed
+- [ ] Batch “nothing safe” notify uses refusal styling
 
-## Correctness
-- [ ] Installed titles launch; appear under Titles
-- [ ] Batch summary still lists succeeded / failed / skipped
-- [ ] Mix bad/truncated CIA → error for that file, batch continues
-
-## Safety (no bricks) — required
-- [ ] System/firmware CIA refused (allowlist); never NAND
-- [ ] Header validated before AM install
-- [ ] `AM_StartCiaInstallOverwrite` + cancel on failure; no `AM_DeleteTitle` / no `AM_InstallFirm`
-- [ ] After tests, Home Menu / Settings still work
+## Regression
+- [ ] CIA install / batch / URL install still works for allowlisted homebrew
+- [ ] Cancel (B) still rolls back; Home Menu / Settings OK after tests
+- [ ] No new crashes when opening Titles / Files / Batch CIAs

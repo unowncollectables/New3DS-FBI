@@ -5,6 +5,7 @@
 
 #include <3ds.h>
 #include <citro3d.h>
+#include <citro2d.h>
 
 #include "error.h"
 #include "screen.h"
@@ -38,6 +39,9 @@ static struct {
     u32 height;
 } textures[MAX_TEXTURES];
 
+static bool c2d_initialized;
+static gfxScreen_t current_screen = GFX_TOP;
+
 static void screen_set_blend(u32 color, bool rgb, bool alpha) {
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     if(env == NULL) {
@@ -66,6 +70,34 @@ static void screen_set_blend(u32 color, bool rgb, bool alpha) {
     C3D_TexEnvColor(env, color);
 }
 
+static u32 screen_color_to_c2d(u32 colorAARRGGBB) {
+    u8 a = (colorAARRGGBB >> 24) & 0xFF;
+    u8 r = (colorAARRGGBB >> 16) & 0xFF;
+    u8 g = (colorAARRGGBB >> 8) & 0xFF;
+    u8 b = colorAARRGGBB & 0xFF;
+    if(base_alpha != 0xFF) {
+        a = (u8) ((a * base_alpha) / 255);
+    }
+    return C2D_Color32(r, g, b, a);
+}
+
+static void screen_bind_fbi_shader(void) {
+    C3D_BindProgram(&program);
+
+    C3D_AttrInfo* attrInfo = C3D_GetAttrInfo();
+    if(attrInfo != NULL) {
+        AttrInfo_Init(attrInfo);
+        AttrInfo_AddLoader(attrInfo, 0, GPU_FLOAT, 3);
+        AttrInfo_AddLoader(attrInfo, 1, GPU_FLOAT, 2);
+    }
+
+    C3D_DepthTest(true, GPU_GEQUAL, GPU_WRITE_ALL);
+    screen_set_blend(0, false, false);
+
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shaderInstanceGetUniformLocation(program.vertexShader, "projection"),
+                     current_screen == GFX_TOP ? &projection_top : &projection_bottom);
+}
+
 void screen_init() {
     if(!C3D_Init(C3D_DEFAULT_CMDBUF_SIZE * 4)) {
         error_panic("Failed to initialize the GPU.");
@@ -73,6 +105,12 @@ void screen_init() {
     }
 
     c3d_initialized = true;
+
+    if(!C2D_Init(C2D_DEFAULT_MAX_OBJECTS)) {
+        error_panic("Failed to initialize citro2d.");
+        return;
+    }
+    c2d_initialized = true;
 
     u32 displayFlags = GX_TRANSFER_FLIP_VERT(0) | GX_TRANSFER_OUT_TILED(0) | GX_TRANSFER_RAW_COPY(0) | GX_TRANSFER_IN_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_OUT_FORMAT(GX_TRANSFER_FMT_RGB8) | GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO);
 
@@ -157,9 +195,23 @@ void screen_init() {
     }
 
     font_scale = 30.0f / glyphInfo->cellHeight; // 30 is cellHeight in J machines
+
+    /* Sensible defaults until textcolor.cfg loads (AARRGGBB). */
+    color_config[COLOR_TEXT] = 0xFF1A237E;
+    color_config[11] = 0xFF1E88E5; /* accent */
+    color_config[12] = 0xFFD32F2F; /* danger */
+    color_config[13] = 0xFFF9A825; /* warning */
+    color_config[14] = 0xFF2E7D32; /* success */
+    color_config[15] = 0xFF607D8B; /* hint */
+    color_config[16] = 0xE6FFFFFF; /* panel */
 }
 
 void screen_exit() {
+    if(c2d_initialized) {
+        C2D_Fini();
+        c2d_initialized = false;
+    }
+
     for(u32 id = 0; id < MAX_TEXTURES; id++) {
         screen_unload_texture(id);
     }
@@ -201,11 +253,55 @@ void screen_set_base_alpha(u8 alpha) {
 
 void screen_set_color(u32 id, u32 color) {
     if(id >= MAX_COLORS) {
-        error_panic("Attempted to draw string with invalid color ID \"%lu\".", id);
+        error_panic("Attempted to set invalid color ID \"%lu\".", id);
         return;
     }
 
     color_config[id] = color;
+}
+
+u32 screen_get_color(u32 id) {
+    if(id >= MAX_COLORS) {
+        return 0xFF000000;
+    }
+
+    return color_config[id];
+}
+
+void screen_draw_rect(float x, float y, float width, float height, u32 colorAbgrOrId, bool colorIsId) {
+    if(!c2d_initialized || width <= 0.0f || height <= 0.0f) {
+        return;
+    }
+
+    u32 raw = colorIsId ? screen_get_color(colorAbgrOrId) : colorAbgrOrId;
+    u32 c2d = screen_color_to_c2d(raw);
+
+    C2D_Flush();
+    C2D_Prepare();
+    C2D_SceneTarget(current_screen == GFX_TOP ? target_top : target_bottom);
+    C2D_DrawRectSolid(x, y, 0.5f, width, height, c2d);
+    C2D_Flush();
+
+    screen_bind_fbi_shader();
+}
+
+void screen_draw_progress_bar(float x, float y, float width, float height, float progress, u32 bgColorId, u32 fgColorId) {
+    if(progress < 0.0f) {
+        progress = 0.0f;
+    }
+    if(progress > 1.0f) {
+        progress = 1.0f;
+    }
+
+    /* Track + fill via citro2d for sub-pixel-smooth edges at 60fps. */
+    screen_draw_rect(x, y, width, height, bgColorId, true);
+
+    float inset = height >= 8.0f ? 3.0f : 1.0f;
+    float innerW = width - inset * 2.0f;
+    float innerH = height - inset * 2.0f;
+    if(innerW > 0.0f && innerH > 0.0f && progress > 0.0f) {
+        screen_draw_rect(x + inset, y + inset, innerW * progress, innerH, fgColorId, true);
+    }
 }
 
 static u32 screen_next_pow_2(u32 i) {
@@ -417,6 +513,7 @@ void screen_end_frame() {
 }
 
 void screen_select(gfxScreen_t screen) {
+    current_screen = screen;
     C3D_RenderTarget* target = screen == GFX_TOP ? target_top : target_bottom;
 
     C3D_RenderTargetClear(target, C3D_CLEAR_ALL, 0, 0);
@@ -425,7 +522,7 @@ void screen_select(gfxScreen_t screen) {
         return;
     }
 
-    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, shaderInstanceGetUniformLocation(program.vertexShader, "projection"), screen == GFX_TOP ? &projection_top : &projection_bottom);
+    screen_bind_fbi_shader();
 }
 
 static void screen_draw_quad(float x1, float y1, float x2, float y2, float left, float bottom, float right, float top) {

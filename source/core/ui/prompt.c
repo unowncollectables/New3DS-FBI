@@ -48,13 +48,16 @@ static void prompt_update(ui_view* view, void* data, float bx1, float by1, float
         touchPosition pos;
         hidTouchRead(&pos);
 
-        float buttonWidth = (bx2 - bx1 - (10 * (promptData->numOptions + 1))) / promptData->numOptions;
+        float buttonWidth = (bx2 - bx1 - (12 * (promptData->numOptions + 1))) / promptData->numOptions;
         u32 buttonHeight;
         screen_get_texture_size(NULL, &buttonHeight, TEXTURE_BUTTON);
+        if(buttonHeight < 40) {
+            buttonHeight = 48;
+        }
 
         for(u32 i = 0; i < promptData->numOptions; i++) {
-            float buttonX = bx1 + 10 + (buttonWidth + 10) * i;
-            float buttonY = by2 - 5 - buttonHeight;
+            float buttonX = bx1 + 12 + (buttonWidth + 12) * i;
+            float buttonY = by2 - 12 - buttonHeight;
 
             if(pos.px >= buttonX && pos.py >= buttonY && pos.px < buttonX + buttonWidth && pos.py < buttonY + buttonHeight) {
                 prompt_notify_response(view, promptData, i);
@@ -128,15 +131,20 @@ static void prompt_button_to_string(char* out, size_t size, u32 button) {
 static void prompt_draw_bottom(ui_view* view, void* data, float x1, float y1, float x2, float y2) {
     prompt_data* promptData = (prompt_data*) data;
 
-    float buttonWidth = (x2 - x1 - (10 * (promptData->numOptions + 1))) / promptData->numOptions;
+    const float pad = 12.0f;
+    const float scale = 0.55f;
+    float buttonWidth = (x2 - x1 - (pad * (promptData->numOptions + 1))) / promptData->numOptions;
     u32 buttonHeight;
     screen_get_texture_size(NULL, &buttonHeight, TEXTURE_BUTTON);
+    if(buttonHeight < 40) {
+        buttonHeight = 48;
+    }
 
     char button[64];
     char text[PROMPT_OPTION_TEXT_MAX + 65];
     for(u32 i = 0; i < promptData->numOptions; i++) {
-        float buttonX = x1 + 10 + (buttonWidth + 10) * i;
-        float buttonY = y2 - 5 - buttonHeight;
+        float buttonX = x1 + pad + (buttonWidth + pad) * i;
+        float buttonY = y2 - pad - buttonHeight;
         screen_draw_texture(TEXTURE_BUTTON, buttonX, buttonY, buttonWidth, buttonHeight);
 
         prompt_button_to_string(button, 64, promptData->optionButtons[i]);
@@ -148,10 +156,23 @@ static void prompt_draw_bottom(ui_view* view, void* data, float x1, float y1, fl
         screen_draw_string(text, buttonX + (buttonWidth - textWidth) / 2, buttonY + (buttonHeight - textHeight) / 2, 0.5f, 0.5f, promptData->color, true);
     }
 
+    float wrapX = x2 - pad;
     float textWidth;
     float textHeight;
-    screen_get_string_size(&textWidth, &textHeight, promptData->text, 0.5f, 0.5f);
-    screen_draw_string(promptData->text, x1 + (x2 - x1 - textWidth) / 2, y1 + (y2 - 5 - buttonHeight - y1 - textHeight) / 2, 0.5f, 0.5f, promptData->color, true);
+    screen_get_string_size_wrap(&textWidth, &textHeight, promptData->text, scale, scale, wrapX - (x1 + pad));
+
+    float panelTop = y1 + pad;
+    float panelBottom = y2 - pad - buttonHeight - pad;
+    float panelH = panelBottom - panelTop;
+    if(panelH > textHeight + pad * 2) {
+        screen_draw_rect(x1 + pad / 2, panelTop, (x2 - x1) - pad, panelH, COLOR_PANEL, true);
+    }
+
+    float textY = panelTop + (panelH - textHeight) / 2;
+    if(textY < panelTop + 6.0f) {
+        textY = panelTop + 6.0f;
+    }
+    screen_draw_string_wrap(promptData->text, x1 + pad, textY, scale, scale, promptData->color, true, wrapX);
 }
 
 ui_view* prompt_display_multi_choice(const char* name, const char* text, u32 color, const char** options, u32* optionButtons, u32 numOptions, void* data, void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2),
@@ -200,4 +221,8 @@ ui_view* prompt_display_yes_no(const char* name, const char* text, u32 color, vo
     static const char* options[2] = {"Yes", "No"};
     static u32 optionButtons[2] = {KEY_A, KEY_B};
     return prompt_display_multi_choice(name, text, color, options, optionButtons, 2, data, drawTop, onResponse);
+}
+ui_view* prompt_display_safety_refusal(const char* name, const char* text, void* data, void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2),
+                                                                                     void (*onResponse)(ui_view* view, void* data, u32 response)) {
+    return prompt_display_notify(name, text, COLOR_DANGER, data, drawTop, onResponse);
 }

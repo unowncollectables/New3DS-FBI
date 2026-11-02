@@ -172,7 +172,7 @@ static Result action_install_cias_restore(void* data, u32 index) {
 bool action_install_cias_error(void* data, u32 index, Result res, ui_view** errorView) {
     if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, action_install_cias_draw_top, res,
-                                       "Refused unsafe or invalid CIA.\nOnly SD apps/updates/DLC allowed.");
+                                       "Safety check refused this CIA.\n\nOnly SD apps / updates / DLC\n(title types 00040000 / 0004000E / 0004008C)\nare allowed. System/NAND titles\nare never installed.");
     } else {
         *errorView = error_display_res(data, action_install_cias_draw_top, res, "Failed to install CIA file.");
     }

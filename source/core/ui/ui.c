@@ -155,7 +155,7 @@ static void ui_draw_top(ui_view* ui) {
     float verWidth;
     float verHeight;
     screen_get_string_size(&verWidth, &verHeight, verText, 0.5f, 0.5f);
-    screen_draw_string(verText, topScreenTopBarX + 2, topScreenTopBarY + (topScreenTopBarHeight - verHeight) / 2, 0.5f, 0.5f, COLOR_TEXT, true);
+    screen_draw_string(verText, topScreenTopBarX + 4, topScreenTopBarY + (topScreenTopBarHeight - verHeight) / 2, 0.5f, 0.5f, COLOR_TEXT, true);
 
     time_t t = time(NULL);
     char* timeText = ctime(&t);
@@ -257,9 +257,9 @@ static void ui_draw_top(ui_view* ui) {
     }
 
     float freeSpaceHeight;
-    screen_get_string_size(NULL, &freeSpaceHeight, ui_free_space_buffer, 0.35f, 0.35f);
+    screen_get_string_size(NULL, &freeSpaceHeight, ui_free_space_buffer, 0.4f, 0.4f);
 
-    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 2, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, 0.35f, 0.35f, COLOR_TEXT, true);
+    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 4, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, 0.4f, 0.4f, COLOR_TEXT, true);
 
     screen_set_base_alpha(0xFF);
 }
@@ -312,8 +312,8 @@ static void ui_draw_bottom(ui_view* ui) {
     if(ui->name != NULL) {
         float nameWidth;
         float nameHeight;
-        screen_get_string_size(&nameWidth, &nameHeight, ui->name, 0.5f, 0.5f);
-        screen_draw_string(ui->name, (BOTTOM_SCREEN_WIDTH - nameWidth) / 2, (bottomScreenTopBarHeight - nameHeight) / 2, 0.5f, 0.5f, COLOR_TEXT, true);
+        screen_get_string_size(&nameWidth, &nameHeight, ui->name, 0.55f, 0.55f);
+        screen_draw_string(ui->name, (BOTTOM_SCREEN_WIDTH - nameWidth) / 2, (bottomScreenTopBarHeight - nameHeight) / 2, 0.55f, 0.55f, COLOR_TEXT, true);
     }
 
     if(ui->info != NULL) {

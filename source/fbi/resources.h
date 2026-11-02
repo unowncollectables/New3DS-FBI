@@ -41,5 +41,11 @@
 #define COLOR_DISABLED 8
 #define COLOR_TICKET_IN_USE 9
 #define COLOR_TICKET_NOT_IN_USE 10
+#define COLOR_ACCENT 11
+#define COLOR_DANGER 12
+#define COLOR_WARNING 13
+#define COLOR_SUCCESS 14
+#define COLOR_HINT 15
+#define COLOR_PANEL 16
 
 void resources_load();

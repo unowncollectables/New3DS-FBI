@@ -29,6 +29,11 @@ void screen_end_frame();
 void screen_select(gfxScreen_t screen);
 void screen_draw_texture(u32 id, float x, float y, float width, float height);
 void screen_draw_texture_crop(u32 id, float x, float y, float width, float height);
+
+/* citro2d primitives (themeable via color ids / raw AARRGGBB) */
+void screen_draw_rect(float x, float y, float width, float height, u32 colorAbgrOrId, bool colorIsId);
+void screen_draw_progress_bar(float x, float y, float width, float height, float progress, u32 bgColorId, u32 fgColorId);
+u32 screen_get_color(u32 id);
 float screen_get_font_height(float scaleY);
 void screen_get_string_size(float* width, float* height, const char* text, float scaleX, float scaleY);
 void screen_get_string_size_wrap(float* width, float* height, const char* text, float scaleX, float scaleY, float wrapWidth);

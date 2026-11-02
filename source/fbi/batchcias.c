@@ -177,7 +177,7 @@ static bool batch_cias_error(void* data, u32 index, Result res, ui_view** errorV
 
     if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, batch_cias_draw_top, res,
-                                       "Skipped unsafe/invalid CIA:\n%.40s", name);
+                                       "Safety refusal — skipped CIA:\n%.40s\n\nOnly SD apps/updates/DLC allowed.", name);
     } else {
         *errorView = error_display_res(data, batch_cias_draw_top, res,
                                        "Failed (continuing batch):\n%.40s", name);
@@ -322,8 +322,8 @@ static void batch_cias_prepare_selected_and_ask(batch_cias_data* data) {
 
     if(linked_list_size(&data->selected) == 0) {
         char buf[160];
-        snprintf(buf, sizeof(buf), "Nothing safe to install.\nSkipped unsafe: %lu", (unsigned long) data->skippedUnsafe);
-        prompt_display_notify("Batch CIAs", buf, COLOR_TEXT, NULL, NULL, NULL);
+        snprintf(buf, sizeof(buf), "Nothing safe to install.\n\nSkipped (system/NAND/unsafe): %lu\nOnly SD apps/updates/DLC allowed.", (unsigned long) data->skippedUnsafe);
+        prompt_display_safety_refusal("Batch CIAs", buf, NULL, NULL, NULL);
         batch_cias_free_data(data);
         return;
     }

@@ -36,25 +36,28 @@ void task_draw_meta_info(ui_view* view, void* data, float x1, float y1, float x2
         screen_draw_texture(info->texture, iconX, iconY, iconWidth, iconHeight);
     }
 
-    float metaTextX = metaInfoBoxX + 64;
+    float metaTextX = metaInfoBoxX + 68;
+    float wrapRight = metaInfoBoxX + metaInfoBoxWidth - 10;
+    const float scale = 0.5f;
+    const float gap = 3.0f;
 
     float shortDescriptionHeight;
-    screen_get_string_size_wrap(NULL, &shortDescriptionHeight, info->shortDescription, 0.5f, 0.5f, metaInfoBoxX + metaInfoBoxWidth - 8 - metaTextX);
+    screen_get_string_size_wrap(NULL, &shortDescriptionHeight, info->shortDescription, scale, scale, wrapRight - metaTextX);
 
     float longDescriptionHeight;
-    screen_get_string_size_wrap(NULL, &longDescriptionHeight, info->longDescription, 0.5f, 0.5f, metaInfoBoxX + metaInfoBoxWidth - 8 - metaTextX);
+    screen_get_string_size_wrap(NULL, &longDescriptionHeight, info->longDescription, scale, scale, wrapRight - metaTextX);
 
     float publisherHeight;
-    screen_get_string_size_wrap(NULL, &publisherHeight, info->publisher, 0.5f, 0.5f, metaInfoBoxX + metaInfoBoxWidth - 8 - metaTextX);
+    screen_get_string_size_wrap(NULL, &publisherHeight, info->publisher, scale, scale, wrapRight - metaTextX);
 
-    float shortDescriptionY = metaInfoBoxY + (64 - shortDescriptionHeight - 2 - longDescriptionHeight - 2 - publisherHeight) / 2;
-    screen_draw_string_wrap(info->shortDescription, metaTextX, shortDescriptionY, 0.5f, 0.5f, COLOR_TEXT, false, metaInfoBoxX + metaInfoBoxWidth - 8);
+    float shortDescriptionY = metaInfoBoxY + (metaInfoBoxHeight - shortDescriptionHeight - gap - longDescriptionHeight - gap - publisherHeight) / 2;
+    screen_draw_string_wrap(info->shortDescription, metaTextX, shortDescriptionY, scale, scale, COLOR_TEXT, false, wrapRight);
 
-    float longDescriptionY = shortDescriptionY + shortDescriptionHeight + 2;
-    screen_draw_string_wrap(info->longDescription, metaTextX, longDescriptionY, 0.5f, 0.5f, COLOR_TEXT, false, metaInfoBoxX + metaInfoBoxWidth - 8);
+    float longDescriptionY = shortDescriptionY + shortDescriptionHeight + gap;
+    screen_draw_string_wrap(info->longDescription, metaTextX, longDescriptionY, scale, scale, COLOR_HINT, false, wrapRight);
 
-    float publisherY = longDescriptionY + longDescriptionHeight + 2;
-    screen_draw_string_wrap(info->publisher, metaTextX, publisherY, 0.5f, 0.5f, COLOR_TEXT, false, metaInfoBoxX + metaInfoBoxWidth - 8);
+    float publisherY = longDescriptionY + longDescriptionHeight + gap;
+    screen_draw_string_wrap(info->publisher, metaTextX, publisherY, scale, scale, COLOR_ACCENT, false, wrapRight);
 }
 
 void task_draw_ext_save_data_info(ui_view* view, void* data, float x1, float y1, float x2, float y2) {
