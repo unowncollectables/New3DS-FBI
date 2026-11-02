@@ -1,35 +1,19 @@
-# Hardware testing — `port-updater`
+# Hardware testing — New3DS FBI (`port-cias` + rebrand)
 
-Stacked on `master` (`ui-refresh`). Artifacts under `output/3ds-arm/`.
+## Builder / paths
+- Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
+- Version: CIA title version + SMDH publisher (`SS3DS_VERSION` / “run N” on SoulSilver)
 
-## What changed
-- Main Menu → **Update my ports**
-- **100% local**: scans `sdmc:/fbi/ports/` only; never downloads; never contacts GitHub/network for ports
-- Accepts only SoulSilver `000400000F7D4000` and Platinum `000400000F7D3D00`
-- Shows installed version vs CIA version (SMDH name hint when present; else size fallback)
-- One-tap update uses `AM_StartCiaInstallOverwrite` — **does not delete** the title first; save data preserved; cancel/failure rolls back
-- Existing allowlist + CIA header validation still apply; no `AM_DeleteTitle` / no `AM_InstallFirm`
+## Rebrand
+- [ ] HOME Menu shows **New3DS FBI** (not FBI); installs beside original FBI
+- [ ] SMDH description mentions **Based on FBI by Steveice10**
+- [ ] Main menu title **New3DS FBI**; top screen credit line; **About / Credits** entry
 
-## Setup (local CIAs you built)
-- [ ] Create `sdmc:/fbi/ports/` (app also creates it)
-- [ ] Copy locally built SoulSilver and/or Platinum `.cia` files into that folder
-- [ ] Do **not** expect the app to fetch or host anything
-
-## Screen
-- [ ] Main Menu shows **Update my ports**
-- [ ] Empty / no matching titles → clear local-only instructions + title IDs
-- [ ] Matching CIAs listed with `installed … -> CIA …` (and name hint when SMDH present)
-- [ ] Colors: not installed (warning), different version (accent), same version (success)
-- [ ] X refreshes installed-version labels after an update
-
-## Update behavior (pt12u)
-- [ ] Confirm text states overwrite install, **no delete**, saves preserved, rollback on failure
-- [ ] A → Yes runs overwrite install with progress; B cancels mid-install safely
-- [ ] After success, title launches; **save data still present**
-- [ ] Wrong/other title CIA in `/fbi/ports/` is ignored by the filter (not listed)
-- [ ] Truncated/invalid CIA refused with safety message; previous title untouched
+## Update my ports
+- [ ] Scans `/cias` then `/fbi/ports`; lists only SoulSilver / Platinum title IDs
+- [ ] Empty → instructions mentioning builder `cias/` filenames
+- [ ] Overwrite install; saves preserved; B cancels safely; no network
 
 ## Safety
-- [ ] No network activity from this screen (no GitHub, no URL installs, no seed download on this path)
-- [ ] System/NAND/firmware CIAs never installed
-- [ ] Home Menu / Settings still work after tests
+- [ ] Unsafe CIAs refused; no DeleteTitle / InstallFirm on these paths
+- [ ] Home Menu / Settings OK after tests

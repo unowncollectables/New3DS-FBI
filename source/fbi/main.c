@@ -121,7 +121,7 @@ void init() {
     bool isNew3DS = false;
     APT_CheckNew3DS(&isNew3DS);
     if(!isNew3DS) {
-        error_panic("FBI requires a New 2DS XL / New 3DS (XL).\nOld 3DS / 2DS models are not supported.");
+        error_panic("New3DS FBI requires a New 2DS XL / New 3DS (XL).\nOld 3DS / 2DS models are not supported.\nBased on FBI by Steveice10.");
         return;
     }
 

@@ -22,6 +22,23 @@ static list_item remote_install = {"Remote Install", COLOR_TEXT, remoteinstall_o
 static list_item batch_cias = {"Batch CIAs (/cias)", COLOR_TEXT, batchcias_open};
 static list_item port_updater = {"Update my ports", COLOR_TEXT, portupdater_open};
 static list_item update = {"Update", COLOR_TEXT, update_open};
+static list_item about = {"About / Credits", COLOR_TEXT, NULL};
+
+static void mainmenu_about(void) {
+    prompt_display_notify(
+        "About New3DS FBI",
+        "New3DS FBI is built on FBI\n"
+        "by Steveice10.\n\n"
+        "Upstream:\n"
+        "github.com/Steveice10/FBI\n\n"
+        "This fork: New 2DS/3DS only,\n"
+        "local port updater, safety\n"
+        "guards. By unowncollectables.\n\n"
+        "LICENSE / copyright for FBI\n"
+        "remain Steveice10's — see\n"
+        "LICENSE.txt in the repo.",
+        COLOR_TEXT, NULL, NULL, NULL);
+}
 
 static void mainmenu_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
     u32 logoWidth;
@@ -31,6 +48,11 @@ static void mainmenu_draw_top(ui_view* view, void* data, float x1, float y1, flo
     float logoX = x1 + (x2 - x1 - logoWidth) / 2;
     float logoY = y1 + (y2 - y1 - logoHeight) / 2;
     screen_draw_texture(TEXTURE_LOGO, logoX, logoY, logoWidth, logoHeight);
+
+    const char* credit = "Based on FBI by Steveice10";
+    float cw, ch;
+    screen_get_string_size(&cw, &ch, credit, 0.45f, 0.45f);
+    screen_draw_string(credit, x1 + (x2 - x1 - cw) / 2, y2 - ch - 6.0f, 0.45f, 0.45f, COLOR_HINT, true);
 }
 
 static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
@@ -41,9 +63,16 @@ static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_
         return;
     }
 
-    if(selected != NULL && (selectedTouched || hidKeysDown() & KEY_A) && selected->data != NULL) {
-        ((void(*)()) selected->data)();
-        return;
+    if(selected != NULL && (selectedTouched || hidKeysDown() & KEY_A)) {
+        if(selected == &about) {
+            mainmenu_about();
+            return;
+        }
+
+        if(selected->data != NULL) {
+            ((void(*)()) selected->data)();
+            return;
+        }
     }
 
     if(linked_list_size(items) == 0) {
@@ -62,11 +91,12 @@ static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_
         linked_list_add(items, &batch_cias);
         linked_list_add(items, &port_updater);
         linked_list_add(items, &update);
+        linked_list_add(items, &about);
     }
 }
 
 void mainmenu_open() {
     resources_load();
 
-    list_display("Main Menu", "A: Select, START: Exit", NULL, mainmenu_update, mainmenu_draw_top);
+    list_display("New3DS FBI", "A: Select, START: Exit", NULL, mainmenu_update, mainmenu_draw_top);
 }

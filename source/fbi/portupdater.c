@@ -9,8 +9,11 @@
 #include "task/uitask.h"
 #include "../core/core.h"
 
-/* Local-only port CIAs. Never download / never contact the network here. */
-#define PORTS_PATH "/fbi/ports"
+/* Local-only port CIAs. Never download / never contact the network here.
+   Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / platinum3ds.cia)
+   Secondary: sdmc:/fbi/ports/ (optional manual drop folder) */
+#define PORTS_PATH_PRIMARY   "/cias"
+#define PORTS_PATH_SECONDARY "/fbi/ports"
 
 #define PORT_TITLE_SOULSILVER 0x000400000F7D4000ULL
 #define PORT_TITLE_PLATINUM   0x000400000F7D3D00ULL
@@ -74,12 +77,17 @@ static void port_build_item_label(list_item* item, file_info* info) {
         portName = "Port";
     }
 
-    char ciaVer[48];
+    char ciaVer[96];
     char installedVer[48];
     bool installed = false;
     u16 installedVersion = 0;
 
-    if(info->ciaInfo.loaded) {
+    /* Builder embeds SS3DS_VERSION (e.g. "run 59") in SMDH publisher; also CIA title version. */
+    if(info->ciaInfo.loaded && info->ciaInfo.hasMeta && !string_is_empty(info->ciaInfo.meta.publisher)) {
+        char titleVer[40];
+        port_format_version(titleVer, sizeof(titleVer), info->ciaInfo.version);
+        snprintf(ciaVer, sizeof(ciaVer), "%s / %s", info->ciaInfo.meta.publisher, titleVer);
+    } else if(info->ciaInfo.loaded) {
         port_format_version(ciaVer, sizeof(ciaVer), info->ciaInfo.version);
     } else {
         snprintf(ciaVer, sizeof(ciaVer), "size %.1f %s",
@@ -94,17 +102,15 @@ static void port_build_item_label(list_item* item, file_info* info) {
         snprintf(installedVer, sizeof(installedVer), "not installed");
     }
 
-    /* Prefer SMDH short description as an extra hint when present. */
-    const char* hint = "";
-    char hintBuf[64];
-    hintBuf[0] = '\0';
-    if(info->ciaInfo.loaded && info->ciaInfo.hasMeta && !string_is_empty(info->ciaInfo.meta.shortDescription)) {
-        snprintf(hintBuf, sizeof(hintBuf), " — %.40s", info->ciaInfo.meta.shortDescription);
-        hint = hintBuf;
+    char where[24];
+    if(strncmp(info->path, PORTS_PATH_PRIMARY "/", strlen(PORTS_PATH_PRIMARY) + 1) == 0) {
+        snprintf(where, sizeof(where), "cias");
+    } else {
+        snprintf(where, sizeof(where), "fbi/ports");
     }
 
-    snprintf(item->name, LIST_ITEM_NAME_MAX, "%s | installed %s -> CIA %s%s",
-             portName, installedVer, ciaVer, hint);
+    snprintf(item->name, LIST_ITEM_NAME_MAX, "%s [%s] | installed %s -> CIA %s",
+             portName, where, installedVer, ciaVer);
 
     if(!installed) {
         item->color = COLOR_WARNING;
@@ -238,7 +244,7 @@ static Result port_restore(void* data, u32 index) {
 static bool port_install_error(void* data, u32 index, Result res, ui_view** errorView) {
     if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
-                                       "Safety refusal.\n\nOnly SoulSilver / Platinum\nport CIAs in sdmc:/fbi/ports/\nare accepted. System/NAND/\nfirmware titles are never installed.");
+                                       "Safety refusal.\n\nOnly SoulSilver / Platinum\nport CIAs in sdmc:/cias/\n(or sdmc:/fbi/ports/)\nare accepted. System/NAND/\nfirmware titles are never installed.");
     } else {
         *errorView = error_display_res(data, port_updater_draw_top, res,
                                        "Port update failed.\nOverwrite was cancelled;\nprevious title/save untouched.");
@@ -411,11 +417,13 @@ static void port_list_open(port_updater_data* data) {
     list_display("Update my ports", "A: Update, X: Refresh, B: Back", data, port_list_update, port_list_draw_top);
 }
 
-/* ---- scan ---- */
+/* ---- scan (primary /cias, then /fbi/ports) ---- */
 
 typedef struct {
     port_updater_data* portData;
     populate_files_data popData;
+    u32 pathIndex; /* 0 = /cias, 1 = /fbi/ports */
+    const char* paths[2];
 } port_loading_data;
 
 static void port_filter_known_only(port_updater_data* data) {
@@ -444,33 +452,74 @@ static void port_filter_known_only(port_updater_data* data) {
     data->contents = kept;
 }
 
+static void port_append_scan_results(port_updater_data* data, linked_list* scanned) {
+    if(scanned == NULL) {
+        return;
+    }
+
+    linked_list_iter iter;
+    linked_list_iterate(scanned, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        linked_list_add(&data->contents, item);
+        linked_list_iter_remove(&iter);
+    }
+
+    linked_list_destroy(scanned);
+    free(scanned);
+}
+
+static void port_discard_scan_list(linked_list* scanned) {
+    if(scanned == NULL) {
+        return;
+    }
+
+    task_clear_files(scanned);
+    linked_list_destroy(scanned);
+    free(scanned);
+}
+
+static bool port_start_path_scan(port_loading_data* loadingData);
+
 static void port_loading_update(ui_view* view, void* data, float* progress, char* text) {
     port_loading_data* loadingData = (port_loading_data*) data;
 
     if(loadingData->popData.finished) {
+        if(R_FAILED(loadingData->popData.result)) {
+            /* Soft-fail empty/missing folders; keep going to the other path. */
+            port_discard_scan_list(loadingData->popData.items);
+        } else {
+            port_append_scan_results(loadingData->portData, loadingData->popData.items);
+        }
+        loadingData->popData.items = NULL;
+
+        loadingData->pathIndex++;
+        if(loadingData->pathIndex < 2) {
+            if(port_start_path_scan(loadingData)) {
+                snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...\n(local only, no network)",
+                         loadingData->paths[loadingData->pathIndex]);
+                return;
+            }
+        }
+
         ui_pop();
         info_destroy(view);
 
-        if(R_FAILED(loadingData->popData.result)) {
-            error_display_res(NULL, NULL, loadingData->popData.result, "Failed to list sdmc:/fbi/ports.");
+        port_filter_known_only(loadingData->portData);
+
+        if(linked_list_size(&loadingData->portData->contents) == 0) {
+            prompt_display_notify("Update my ports",
+                                  "No SoulSilver / Platinum CIAs found.\n\n"
+                                  "Pokemon 3DS Builder copies them to:\n"
+                                  "  sdmc:/cias/soulsilver3ds.cia\n"
+                                  "  sdmc:/cias/platinum3ds.cia\n\n"
+                                  "Optional: also sdmc:/fbi/ports/\n\n"
+                                  "Matched by title ID only.\n"
+                                  "Nothing is downloaded — local only.",
+                                  COLOR_TEXT, NULL, NULL, NULL);
             port_updater_free_data(loadingData->portData);
         } else {
-            port_filter_known_only(loadingData->portData);
-
-            if(linked_list_size(&loadingData->portData->contents) == 0) {
-                prompt_display_notify("Update my ports",
-                                      "No SoulSilver / Platinum CIAs found.\n\n"
-                                      "Place locally built .cia files in:\n"
-                                      "  sdmc:/fbi/ports/\n\n"
-                                      "Title IDs accepted:\n"
-                                      "  000400000F7D4000 SoulSilver\n"
-                                      "  000400000F7D3D00 Platinum\n\n"
-                                      "Nothing is downloaded — local only.",
-                                      COLOR_TEXT, NULL, NULL, NULL);
-                port_updater_free_data(loadingData->portData);
-            } else {
-                port_list_open(loadingData->portData);
-            }
+            port_list_open(loadingData->portData);
         }
 
         free(loadingData);
@@ -481,7 +530,39 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
         svcSignalEvent(loadingData->popData.cancelEvent);
     }
 
-    snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...\n(local only, no network)", PORTS_PATH);
+    snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...\n(local only, no network)",
+             loadingData->paths[loadingData->pathIndex]);
+}
+
+static bool port_start_path_scan(port_loading_data* loadingData) {
+    linked_list* items = (linked_list*) calloc(1, sizeof(linked_list));
+    if(items == NULL) {
+        return false;
+    }
+
+    linked_list_init(items);
+
+    memset(&loadingData->popData, 0, sizeof(loadingData->popData));
+    loadingData->popData.items = items;
+    loadingData->popData.archive = loadingData->portData->archive;
+    snprintf(loadingData->popData.path, FILE_PATH_MAX, "%s/", loadingData->paths[loadingData->pathIndex]);
+    loadingData->popData.recursive = false;
+    loadingData->popData.includeBase = false;
+    loadingData->popData.meta = true;
+    loadingData->popData.filter = fs_filter_cias;
+    loadingData->popData.filterData = NULL;
+
+    Result listRes = task_populate_files(&loadingData->popData);
+    if(R_FAILED(listRes)) {
+        linked_list_destroy(items);
+        free(items);
+        loadingData->popData.items = NULL;
+        loadingData->popData.finished = true;
+        loadingData->popData.result = listRes;
+        return true; /* treat as finished empty so update advances */
+    }
+
+    return true;
 }
 
 void portupdater_open() {
@@ -500,12 +581,10 @@ void portupdater_open() {
         return;
     }
 
-    if(R_FAILED(res = fs_ensure_dir(data->archive, "/fbi/"))
-       || R_FAILED(res = fs_ensure_dir(data->archive, PORTS_PATH "/"))) {
-        error_display_res(NULL, NULL, res, "Failed to create sdmc:/fbi/ports.");
-        port_updater_free_data(data);
-        return;
-    }
+    /* Ensure both drop folders exist (builder uses /cias). */
+    fs_ensure_dir(data->archive, PORTS_PATH_PRIMARY "/");
+    fs_ensure_dir(data->archive, "/fbi/");
+    fs_ensure_dir(data->archive, PORTS_PATH_SECONDARY "/");
 
     port_loading_data* loadingData = (port_loading_data*) calloc(1, sizeof(port_loading_data));
     if(loadingData == NULL) {
@@ -515,18 +594,12 @@ void portupdater_open() {
     }
 
     loadingData->portData = data;
-    loadingData->popData.items = &data->contents;
-    loadingData->popData.archive = data->archive;
-    string_copy(loadingData->popData.path, PORTS_PATH "/", FILE_PATH_MAX);
-    loadingData->popData.recursive = false;
-    loadingData->popData.includeBase = false;
-    loadingData->popData.meta = true;
-    loadingData->popData.filter = fs_filter_cias;
-    loadingData->popData.filterData = NULL;
+    loadingData->pathIndex = 0;
+    loadingData->paths[0] = PORTS_PATH_PRIMARY;
+    loadingData->paths[1] = PORTS_PATH_SECONDARY;
 
-    Result listRes = task_populate_files(&loadingData->popData);
-    if(R_FAILED(listRes)) {
-        error_display_res(NULL, NULL, listRes, "Failed to start ports scan.");
+    if(!port_start_path_scan(loadingData)) {
+        error_display(NULL, NULL, "Failed to start ports scan.");
         free(loadingData);
         port_updater_free_data(data);
         return;
