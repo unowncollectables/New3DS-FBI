@@ -58,7 +58,7 @@
 - [ ] Install blocked with clear message when SD free space < CIA size
 - [ ] Low battery + not charging warns/blocks before install
 - [ ] Done screen shows time; Recent installs lists history
-- [ ] FTP Y = Install .cia I send; after upload, safe install prompt/flow
+- [ ] FTP has no auto-install; upload only. Install requires picking a file and confirming
 - [ ] My installed games: Y search, L/R letter, sizes shown; icon on top
 - [ ] Advanced leftover finder lists unused user tickets + pending; delete confirms
 - [ ] Sleep stays off during installs (existing dataop); lid-safe

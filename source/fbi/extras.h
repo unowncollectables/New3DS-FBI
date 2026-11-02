@@ -30,5 +30,3 @@ void extras_install_begin(void); /* disable sleep, mark start time */
 void extras_install_end(void);   /* restore sleep */
 u32 extras_install_elapsed_seconds(void);
 
-/* Install CIA from an SD path like "/cias/game.cia" (safe allowlist path). */
-void extras_install_cia_path(const char* fsPath, const char* confirmMsg);

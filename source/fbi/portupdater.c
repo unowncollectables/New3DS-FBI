@@ -364,6 +364,7 @@ static void port_ask_update(port_updater_data* data, list_item* item) {
              "100%% local — no download.",
              name, info->name);
 
+    /* Requires explicit Yes before AM overwrite. */
     prompt_display_yes_no("Update my ports", msg, COLOR_TEXT, data, port_updater_draw_top, port_confirm_onresponse);
 }
 

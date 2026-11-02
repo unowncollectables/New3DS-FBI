@@ -18,7 +18,6 @@
 #include "resources.h"
 #include "section.h"
 #include "settings.h"
-#include "extras.h"
 #include "../core/core.h"
 
 #define FTP_PASV_PORT_BASE 5001
@@ -51,9 +50,6 @@ typedef struct {
 static ftp_server g_ftp;
 static bool g_ftp_inited = false;
 static bool g_prev_sleep_allowed = true;
-static bool g_ftp_auto_install = false;
-static char g_ftp_pending_cia[FTP_PATH_MAX];
-static volatile bool g_ftp_pending_ready = false;
 
 static void ftp_set_state(ftp_state_t st, const char* status) {
     LightLock_Lock(&g_ftp.lock);
@@ -355,24 +351,6 @@ static void ftp_retr(const char* sdmcPath) {
     ftp_send_ctrl("226 Transfer complete");
     ftp_set_state(FTP_STATE_CONNECTED, "Connected — transfer done");
 
-    if(g_ftp_auto_install) {
-        const char* slash = strrchr(sdmcPath, '/');
-        const char* base = slash ? slash + 1 : sdmcPath;
-        size_t blen = strlen(base);
-        if(blen > 4) {
-            const char* ext = base + blen - 4;
-            if(strcasecmp(ext, ".cia") == 0) {
-                /* sdmcPath is like sdmc:/foo.cia — store FS path for installer */
-                const char* fs = sdmcPath;
-                if(strncmp(fs, "sdmc:", 5) == 0) fs += 5;
-                LightLock_Lock(&g_ftp.lock);
-                string_copy(g_ftp_pending_cia, fs, sizeof(g_ftp_pending_cia));
-                g_ftp_pending_ready = true;
-                snprintf(g_ftp.status, sizeof(g_ftp.status), "Uploaded %s — ready to install", base);
-                LightLock_Unlock(&g_ftp.lock);
-            }
-        }
-    }
 }
 
 static void ftp_stor(const char* sdmcPath) {
@@ -431,24 +409,6 @@ static void ftp_stor(const char* sdmcPath) {
     ftp_send_ctrl("226 Transfer complete");
     ftp_set_state(FTP_STATE_CONNECTED, "Connected — transfer done");
 
-    if(g_ftp_auto_install) {
-        const char* slash = strrchr(sdmcPath, '/');
-        const char* base = slash ? slash + 1 : sdmcPath;
-        size_t blen = strlen(base);
-        if(blen > 4) {
-            const char* ext = base + blen - 4;
-            if(strcasecmp(ext, ".cia") == 0) {
-                /* sdmcPath is like sdmc:/foo.cia — store FS path for installer */
-                const char* fs = sdmcPath;
-                if(strncmp(fs, "sdmc:", 5) == 0) fs += 5;
-                LightLock_Lock(&g_ftp.lock);
-                string_copy(g_ftp_pending_cia, fs, sizeof(g_ftp_pending_cia));
-                g_ftp_pending_ready = true;
-                snprintf(g_ftp.status, sizeof(g_ftp.status), "Uploaded %s — ready to install", base);
-                LightLock_Unlock(&g_ftp.lock);
-            }
-        }
-    }
 }
 
 static bool ftp_password_required(void) {
@@ -832,20 +792,6 @@ static void ftp_ui_update(ui_view* view, void* data, float* progress, char* text
         settings_set_ftp_keep_awake(next);
         aptSetSleepAllowed(!next);
     }
-
-    /* Y toggles auto-install of uploaded CIAs */
-    if(hidKeysDown() & KEY_Y) {
-        g_ftp_auto_install = !g_ftp_auto_install;
-    }
-
-    if(g_ftp_pending_ready) {
-        char path[FTP_PATH_MAX];
-        LightLock_Lock(&g_ftp.lock);
-        string_copy(path, g_ftp_pending_cia, sizeof(path));
-        g_ftp_pending_ready = false;
-        LightLock_Unlock(&g_ftp.lock);
-        extras_install_cia_path(path, "Install the CIA you just sent?");
-    }
 }
 
 static void ftp_ui_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2) {
@@ -905,12 +851,11 @@ static void ftp_ui_draw_bottom(ui_view* view, void* data, float x1, float y1, fl
         y += 26.0f;
     }
 
-    char awake[96];
-    snprintf(awake, sizeof(awake), "Keep awake: %s (X) · Install .cia I send: %s (Y)",
-             settings_ftp_keep_awake() ? "On" : "Off",
-             g_ftp_auto_install ? "On" : "Off");
-    screen_get_string_size(&w, &h, awake, 0.4f, 0.4f);
-    screen_draw_string(awake, x1 + (x2 - x1 - w) / 2, y2 - h - 36.0f, 0.4f, 0.4f, COLOR_HINT, true);
+    char awake[80];
+    snprintf(awake, sizeof(awake), "Keep screen awake: %s  (X = toggle)",
+             settings_ftp_keep_awake() ? "On" : "Off");
+    screen_get_string_size(&w, &h, awake, 0.45f, 0.45f);
+    screen_draw_string(awake, x1 + (x2 - x1 - w) / 2, y2 - h - 36.0f, 0.45f, 0.45f, COLOR_HINT, true);
 
     const char* hint = "B = stop and go back";
     screen_get_string_size(&w, &h, hint, 0.5f, 0.5f);

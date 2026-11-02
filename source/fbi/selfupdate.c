@@ -353,6 +353,7 @@ static void selfupdate_do_install(void) {
              selfupdate_display_tag());
 
     action_install_url_set_required_title_id(SELFUPDATE_TITLE_ID);
+    /* Requires Yes on confirm dialog inside action_install_url. */
     action_install_url(msg, url, NULL, NULL, NULL, selfupdate_finished_all, NULL);
 }
 

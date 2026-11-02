@@ -9,9 +9,6 @@
 #include "resources.h"
 #include "section.h"
 #include "settings.h"
-#include "action/action.h"
-#include "task/uitask.h"
-#include "task/listfiles.h"
 #include "../core/core.h"
 
 #define HISTORY_PATH "/fbi/history.txt"
@@ -241,87 +238,4 @@ static void history_update(ui_view* view, void* data, linked_list* items, list_i
 
 void extras_history_open(void) {
     list_display("Recent installs", "B = back", NULL, history_update, history_draw_top);
-}
-
-/* ---- Install from SD path ---- */
-static linked_list g_path_items;
-static bool g_path_items_inited = false;
-static FS_Archive g_path_archive = 0;
-
-
-static list_item* s_batt_pending_item = NULL;
-
-static void extras_battery_install_onresponse(ui_view* view, void* data, u32 response) {
-    (void) view;
-    (void) data;
-    if(response == PROMPT_YES && s_batt_pending_item != NULL) {
-        action_install_cia(&g_path_items, s_batt_pending_item);
-    }
-    s_batt_pending_item = NULL;
-}
-
-void extras_install_cia_path(const char* fsPath, const char* confirmMsg) {
-    (void) confirmMsg;
-    if(fsPath == NULL || fsPath[0] == '\0') {
-        return;
-    }
-
-    extras_init_lazy();
-
-    if(g_path_archive != 0) {
-        FSUSER_CloseArchive(g_path_archive);
-        g_path_archive = 0;
-    }
-    if(g_path_items_inited) {
-        task_clear_files(&g_path_items);
-        linked_list_destroy(&g_path_items);
-    }
-    linked_list_init(&g_path_items);
-    g_path_items_inited = true;
-
-    if(R_FAILED(FSUSER_OpenArchive(&g_path_archive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, "")))) {
-        prompt_display_notify("Install", "Could not open the SD card.", COLOR_TEXT, NULL, NULL, NULL);
-        return;
-    }
-
-    const char* path = fsPath;
-    if(strncmp(path, "sdmc:", 5) == 0) {
-        path += 5;
-    }
-
-    list_item* item = NULL;
-    Result res = task_create_file_item(&item, g_path_archive, path, 0, true);
-    if(R_FAILED(res) || item == NULL) {
-        prompt_display_notify("Install", "Could not read that CIA file.", COLOR_TEXT, NULL, NULL, NULL);
-        FSUSER_CloseArchive(g_path_archive);
-        g_path_archive = 0;
-        return;
-    }
-    linked_list_add(&g_path_items, item);
-
-    file_info* fi = (file_info*) item->data;
-    u64 have = 0;
-    if(fi != NULL && !extras_sd_has_space(fi->size, &have)) {
-        char msg[256];
-        char needS[32], haveS[32];
-        extras_format_bytes(needS, sizeof(needS), fi->size);
-        extras_format_bytes(haveS, sizeof(haveS), have);
-        snprintf(msg, sizeof(msg),
-                 "This needs about %s.\nYou only have %s free\non the SD card.\n\nFree some space and try again.",
-                 needS, haveS);
-        prompt_display_notify("Not enough space", msg, COLOR_WARNING, NULL, NULL, NULL);
-        return;
-    }
-
-    if(!extras_battery_ok_for_long_job()) {
-        char msg[220];
-        snprintf(msg, sizeof(msg),
-                 "Battery looks low and the console\nis not charging.\n\nInstall anyway?\n(%s)",
-                 fi != NULL ? fi->name : "CIA");
-        s_batt_pending_item = item;
-        prompt_display_yes_no("Battery low", msg, COLOR_WARNING, NULL, NULL, extras_battery_install_onresponse);
-        return;
-    }
-
-    action_install_cia(&g_path_items, item);
 }
