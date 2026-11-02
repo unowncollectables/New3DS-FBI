@@ -23,7 +23,7 @@ ENABLE_L2_CACHE := true
 
 # App semver (also used by self-update checker).
 VERSION_MAJOR := 3
-VERSION_MINOR := 3
+VERSION_MINOR := 4
 VERSION_MICRO := 0
 
 DESCRIPTION := Based on FBI by Steveice10. New 2DS/3DS title manager.

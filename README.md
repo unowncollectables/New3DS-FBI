@@ -34,6 +34,10 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 - My installed games: search, letter jump, size labels; leftover ticket/pending finder (Advanced)
 - **Send files from your PC (FTP)** — built-in FTP server (Advanced), SD card only, big on-screen address
 
+- **Back up my saves** — copy game save data (user titles `00040000` only) to `sdmc:/fbi/saves/…` with icons; restore always asks Yes/No and makes a fresh safety backup first; optional read-only extdata; never system saves
+- **My SD card files** — browse `sdmc:` only from the main menu: copy / cut-move / rename / delete / new folder, multi-select with **Y**, confirm on delete/overwrite, extra warning for `luma`, `Nintendo 3DS`, `boot.firm`, `boot.3dsx`; install a `.cia` only after explicit confirm
+- **About my 3DS** — read-only system info (model, firmware, Luma if found, region, battery, SD space, MAC/IP, free memory); no serials/keys/friend codes by default
+
 
 ## Update this app (self-update)
 

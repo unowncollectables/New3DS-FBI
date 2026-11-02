@@ -337,7 +337,7 @@ static void action_install_cias_loading_update(ui_view* view, void* data, float*
             loadingData->installData->installInfo.total = linked_list_size(&loadingData->installData->contents);
             loadingData->installData->installInfo.processed = loadingData->installData->installInfo.total;
 
-            prompt_display_yes_no("Install?", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_cias_draw_top, action_install_cias_onresponse);
+            prompt_display_yes_no("Install CIA?", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_cias_draw_top, action_install_cias_onresponse);
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate CIA list.");
 
@@ -444,17 +444,17 @@ static void action_install_cias_internal(linked_list* items, list_item* selected
 }
 
 void action_install_cia(linked_list* items, list_item* selected) {
-    action_install_cias_internal(items, selected, NULL, NULL, "Install the selected CIA?", false);
+    action_install_cias_internal(items, selected, NULL, NULL, "Install this CIA game/app?\n\nYes = install\nNo = cancel", false);
 }
 
 void action_install_cia_delete(linked_list* items, list_item* selected) {
-    action_install_cias_internal(items, selected, NULL, NULL, "Install and delete the selected CIA?", true);
+    action_install_cias_internal(items, selected, NULL, NULL, "Install this CIA, then delete the file?\n\nYes = install and delete\nNo = cancel", true);
 }
 
 void action_install_cias(linked_list* items, list_item* selected, bool (*filter)(void* data, const char* name, u32 attributes), void* filterData) {
-    action_install_cias_internal(items, selected, filter, filterData, "Install all CIAs in the current directory?", false);
+    action_install_cias_internal(items, selected, filter, filterData, "Install EVERY CIA in this folder?\n\nYes = install all\nNo = cancel", false);
 }
 
 void action_install_cias_delete(linked_list* items, list_item* selected, bool (*filter)(void* data, const char* name, u32 attributes), void* filterData) {
-    action_install_cias_internal(items, selected, filter, filterData, "Install and delete all CIAs in the current directory?", true);
+    action_install_cias_internal(items, selected, filter, filterData, "Install every CIA here, then delete the files?\n\nYes = install and delete\nNo = cancel", true);
 }

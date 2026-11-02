@@ -8,6 +8,7 @@
 #include "../resources.h"
 #include "../task/uitask.h"
 #include "../../core/core.h"
+#include "../pathprotect.h"
 
 typedef struct {
     linked_list* items;
@@ -161,7 +162,22 @@ static void action_delete_loading_update(ui_view* view, void* data, float* progr
             loadingData->deleteData->deleteInfo.total = linked_list_size(&loadingData->deleteData->contents);
             loadingData->deleteData->deleteInfo.processed = loadingData->deleteData->deleteInfo.total;
 
-            prompt_display_yes_no("Confirmation", loadingData->message, COLOR_TEXT, loadingData->deleteData, action_delete_draw_top, action_delete_onresponse);
+            {
+                const char* path = loadingData->deleteData->target != NULL ? loadingData->deleteData->target->path : "";
+                bool critical = path_is_critical_sd(path);
+                char msg[512];
+                if(critical) {
+                    snprintf(msg, sizeof(msg),
+                             "STOP — this is an important system path:\n%s\n\n"
+                             "Deleting it can make the console\nunable to boot.\n\n"
+                             "%s\n\nYes = delete anyway\nNo = cancel",
+                             path, loadingData->message);
+                    prompt_display_yes_no("Dangerous delete!", msg, COLOR_DANGER, loadingData->deleteData, action_delete_draw_top, action_delete_onresponse);
+                } else {
+                    snprintf(msg, sizeof(msg), "%s\n\nYes = delete\nNo = cancel", loadingData->message);
+                    prompt_display_yes_no("Delete?", msg, COLOR_WARNING, loadingData->deleteData, action_delete_draw_top, action_delete_onresponse);
+                }
+            }
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate content list.");
 
@@ -248,15 +264,15 @@ static void action_delete_internal(linked_list* items, list_item* selected, cons
 }
 
 void action_delete_file(linked_list* items, list_item* selected) {
-    action_delete_internal(items, selected, "Delete the selected file?", false, true, false, false);
+    action_delete_internal(items, selected, "Delete this file forever?", false, true, false, false);
 }
 
 void action_delete_dir(linked_list* items, list_item* selected) {
-    action_delete_internal(items, selected, "Delete the current directory?", true, true, false, false);
+    action_delete_internal(items, selected, "Delete this folder and everything inside?", true, true, false, false);
 }
 
 void action_delete_dir_contents(linked_list* items, list_item* selected) {
-    action_delete_internal(items, selected, "Delete all contents of the current directory?", true, false, false, false);
+    action_delete_internal(items, selected, "Delete everything inside this folder?", true, false, false, false);
 }
 
 void action_delete_dir_cias(linked_list* items, list_item* selected) {

@@ -1,4 +1,4 @@
-# Hardware testing — New3DS FBI v3.3.0
+# Hardware testing — New3DS FBI v3.4.0
 
 ## Builder / paths
 - Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
@@ -62,3 +62,34 @@
 - [ ] My installed games: Y search, L/R letter, sizes shown; icon on top
 - [ ] Advanced leftover finder lists unused user tickets + pending; delete confirms
 - [ ] Sleep stays off during installs (existing dataop); lid-safe
+
+
+## v3.4.0 — Save backup, SD files, About my 3DS
+
+### Back up my saves
+- [ ] Main menu shows **Back up my saves**
+- [ ] Lists only user apps (`00040000`), with icons / names
+- [ ] **Back up save now** writes `sdmc:/fbi/saves/<Name> [<TID>] COP<YYYY-MM-DD_HHMMSS>/`
+- [ ] Game with no save shows a friendly “No save data” message (does not crash)
+- [ ] **Restore a backup…** lists matching folders; **requires Yes**; makes a fresh safety backup first
+- [ ] Restored save works in-game; safety copy remains on SD
+- [ ] Extdata copied when present (read-only); missing extdata is fine
+- [ ] System titles / NAND saves never appear
+
+### My SD card files
+- [ ] Main menu label **My SD card files**; browses SD only (no NAND from this entry)
+- [ ] Copy, Cut (move), Paste here, Rename, Delete, Make a new folder all work
+- [ ] **Y** marks/unmarks (`[*]`); **Delete marked items** asks Yes/No
+- [ ] Delete / rename of `sdmc:/luma`, `Nintendo 3DS`, `boot.firm`, `boot.3dsx` shows a **Dangerous** warning
+- [ ] Installing a `.cia` from here asks Yes/No and does not auto-start
+- [ ] Sizes show on the top screen for selected files
+
+### About my 3DS
+- [ ] Shows model, system version, Luma (if detectable), region, battery, SD free/total, IP, MAC, free memory
+- [ ] Does **not** show serial, keys, or friend code by default
+- [ ] Read-only — B backs out; X refreshes
+
+### Regression
+- [ ] Advanced NAND browse still gated; FTP still Advanced + SD-only
+- [ ] Self-update still non-pushy; no FTP auto-install
+- [ ] Clean build produces `New3DS-FBI.cia` / `.3dsx` at 3.4.0

@@ -8,6 +8,7 @@
 #include "../resources.h"
 #include "../task/uitask.h"
 #include "../../core/core.h"
+#include "../pathprotect.h"
 
 typedef struct {
     linked_list* items;
@@ -75,16 +76,41 @@ static void action_rename_onresponse(ui_view* view, void* data, SwkbdButton butt
     free(renameData);
 }
 
+static void action_rename_start(rename_data* data) {
+    kbd_display("Enter new name", ((file_info*) data->selected->data)->name, SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, FILE_NAME_MAX, data, action_rename_onresponse);
+}
+
+static void action_rename_critical_onresponse(ui_view* view, void* data, u32 response) {
+    (void) view;
+    rename_data* renameData = (rename_data*) data;
+    if(response == PROMPT_YES) {
+        action_rename_start(renameData);
+    } else {
+        free(renameData);
+    }
+}
+
 void action_rename(linked_list* items, list_item* selected) {
     rename_data* data = (rename_data*) calloc(1, sizeof(rename_data));
     if(data == NULL) {
         error_display(NULL, NULL, "Failed to allocate rename data.");
-
         return;
     }
 
     data->items = items;
     data->selected = selected;
 
-    kbd_display("Enter new name", ((file_info*) selected->data)->name, SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, FILE_NAME_MAX, data, action_rename_onresponse);
+    file_info* info = (file_info*) selected->data;
+    if(path_is_critical_sd(info->path)) {
+        char msg[384];
+        snprintf(msg, sizeof(msg),
+                 "STOP — this path is important:\n%s\n\n"
+                 "Renaming it can break boot or games.\n\n"
+                 "Yes = rename anyway\nNo = cancel",
+                 info->path);
+        prompt_display_yes_no("Dangerous rename!", msg, COLOR_DANGER, data, NULL, action_rename_critical_onresponse);
+        return;
+    }
+
+    action_rename_start(data);
 }

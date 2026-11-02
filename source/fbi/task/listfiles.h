@@ -30,6 +30,8 @@ typedef struct file_info_s {
     cia_info ciaInfo;
     bool isTicket;
     ticket_info ticketInfo;
+
+    bool marked; /* multi-select in SD file manager */
 } file_info;
 
 typedef struct populate_files_data_s {
