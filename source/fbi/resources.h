@@ -48,6 +48,7 @@
 #define COLOR_HINT 15
 #define COLOR_PANEL 16
 #define COLOR_BAR_TEXT 17
+#define COLOR_BAR 18 /* header/footer bar fill (darker accent) */
 
 void resources_load();
 
@@ -57,3 +58,13 @@ bool resources_is_dark(void);
 void resources_set_dark(bool dark); /* applies instantly unless SD override */
 void resources_apply_builtin_palette(bool dark);
 bool resources_dark_fill_enabled(void); /* dark chrome overlay for default BGs */
+
+/* Accent colour for bars, selection, progress (0=Blue, 1=Green, 2=Purple, 3=Orange). */
+#define RESOURCES_ACCENT_BLUE 0
+#define RESOURCES_ACCENT_GREEN 1
+#define RESOURCES_ACCENT_PURPLE 2
+#define RESOURCES_ACCENT_ORANGE 3
+u32 resources_get_accent(void);
+void resources_set_accent(u32 accent);
+void resources_apply_accent(void);
+

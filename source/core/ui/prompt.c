@@ -178,7 +178,8 @@ static void prompt_draw_bottom(ui_view* view, void* data, float x1, float y1, fl
     screen_draw_rect(x1 + 4.0f, y1 + 4.0f, (x2 - x1) - 8.0f, contentBottom - (y1 + 4.0f), COLOR_PANEL, true);
 
     /* Accent strip for danger/warning dialogs. */
-    if(promptData->accentColor == COLOR_DANGER || promptData->accentColor == COLOR_WARNING) {
+    if(promptData->accentColor == COLOR_DANGER || promptData->accentColor == COLOR_WARNING
+       || promptData->accentColor == COLOR_ACCENT || promptData->accentColor == COLOR_SUCCESS) {
         screen_draw_rect(x1 + 4.0f, y1 + 4.0f, 6.0f, contentBottom - (y1 + 4.0f), promptData->accentColor, true);
     }
 
@@ -204,14 +205,14 @@ static void prompt_draw_bottom(ui_view* view, void* data, float x1, float y1, fl
     for(u32 i = 0; i < promptData->numOptions; i++) {
         float buttonX = x1 + PROMPT_PAD + (buttonWidth + PROMPT_PAD) * i;
         float buttonY = y2 - PROMPT_PAD - buttonHeight;
-        screen_draw_texture(TEXTURE_BUTTON, buttonX, buttonY, buttonWidth, buttonHeight);
+        /* Accent-filled buttons so white labels stay readable. */
+        screen_draw_rect(buttonX, buttonY, buttonWidth, buttonHeight, COLOR_ACCENT, true);
 
         prompt_button_to_string(button, sizeof(button), promptData->optionButtons[i]);
         snprintf(label, sizeof(label), "%s\n(%s)", promptData->options[i], button);
 
         float lw, lh;
         screen_get_string_size(&lw, &lh, label, 0.45f, 0.45f);
-        /* White labels on button art. */
         screen_draw_string(label, buttonX + (buttonWidth - lw) / 2, buttonY + (buttonHeight - lh) / 2, 0.45f, 0.45f, COLOR_BAR_TEXT, true);
     }
 }

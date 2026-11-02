@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <3ds.h>
 
 #define FTP_PASSWORD_MAX 64
 
@@ -25,3 +26,7 @@ void settings_set_ftp_keep_awake(bool keep);
 /* Theme: false = Light (default), true = Dark. SD textcolor.cfg still wins. */
 bool settings_dark_theme(void);
 void settings_set_dark_theme(bool dark);
+
+/* Accent: 0=Blue, 1=Green, 2=Purple, 3=Orange */
+u32 settings_accent(void);
+void settings_set_accent(u32 accent);

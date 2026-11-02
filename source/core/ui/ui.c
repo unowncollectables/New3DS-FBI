@@ -143,12 +143,12 @@ static void ui_draw_top(ui_view* ui) {
 
     float topScreenTopBarX = (TOP_SCREEN_WIDTH - topScreenTopBarWidth) / 2;
     float topScreenTopBarY = 0;
-    screen_draw_texture(TEXTURE_TOP_SCREEN_TOP_BAR, topScreenTopBarX, topScreenTopBarY, topScreenTopBarWidth, topScreenTopBarHeight);
+    screen_draw_rect(0, topScreenTopBarY, TOP_SCREEN_WIDTH, topScreenTopBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_TOP_SCREEN_TOP_BAR_SHADOW, topScreenTopBarX, topScreenTopBarY + topScreenTopBarHeight, topScreenTopBarShadowWidth, topScreenTopBarShadowHeight);
 
     float topScreenBottomBarX = (TOP_SCREEN_WIDTH - topScreenBottomBarWidth) / 2;
     float topScreenBottomBarY = TOP_SCREEN_HEIGHT - topScreenBottomBarHeight;
-    screen_draw_texture(TEXTURE_TOP_SCREEN_BOTTOM_BAR, topScreenBottomBarX, topScreenBottomBarY, topScreenBottomBarWidth, topScreenBottomBarHeight);
+    screen_draw_rect(0, topScreenBottomBarY, TOP_SCREEN_WIDTH, topScreenBottomBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_TOP_SCREEN_BOTTOM_BAR_SHADOW, topScreenBottomBarX, topScreenBottomBarY - topScreenBottomBarShadowHeight, topScreenBottomBarShadowWidth, topScreenBottomBarShadowHeight);
 
     screen_set_base_alpha(ui_fade_alpha);
@@ -290,12 +290,12 @@ static void ui_draw_bottom(ui_view* ui) {
 
     float bottomScreenTopBarX = (BOTTOM_SCREEN_WIDTH - bottomScreenTopBarWidth) / 2;
     float bottomScreenTopBarY = 0;
-    screen_draw_texture(TEXTURE_BOTTOM_SCREEN_TOP_BAR, bottomScreenTopBarX, bottomScreenTopBarY, bottomScreenTopBarWidth, bottomScreenTopBarHeight);
+    screen_draw_rect(0, bottomScreenTopBarY, BOTTOM_SCREEN_WIDTH, bottomScreenTopBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_BOTTOM_SCREEN_TOP_BAR_SHADOW, bottomScreenTopBarX, bottomScreenTopBarY + bottomScreenTopBarHeight, bottomScreenTopBarShadowWidth, bottomScreenTopBarShadowHeight);
 
     float bottomScreenBottomBarX = (BOTTOM_SCREEN_WIDTH - bottomScreenBottomBarWidth) / 2;
     float bottomScreenBottomBarY = BOTTOM_SCREEN_HEIGHT - bottomScreenBottomBarHeight;
-    screen_draw_texture(TEXTURE_BOTTOM_SCREEN_BOTTOM_BAR, bottomScreenBottomBarX, bottomScreenBottomBarY, bottomScreenBottomBarWidth, bottomScreenBottomBarHeight);
+    screen_draw_rect(0, bottomScreenBottomBarY, BOTTOM_SCREEN_WIDTH, bottomScreenBottomBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_BOTTOM_SCREEN_BOTTOM_BAR_SHADOW, bottomScreenBottomBarX, bottomScreenBottomBarY - bottomScreenBottomBarShadowHeight, bottomScreenBottomBarShadowWidth, bottomScreenBottomBarShadowHeight);
 
     screen_set_base_alpha(ui_fade_alpha);
