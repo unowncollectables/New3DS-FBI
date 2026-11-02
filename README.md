@@ -1,92 +1,79 @@
+<div align="center">
+
 # New3DS FBI
 
-**New3DS FBI is built on [FBI by Steveice10](https://github.com/Steveice10/FBI).**  
-Steveice10’s work is the foundation of this app — please don’t forget that. This repository keeps FBI’s original `LICENSE.txt` and copyright notice intact.
+**A modernized FBI title manager — New 2DS / New 3DS only.**
 
-New3DS FBI is a **New 2DS / New 3DS (XL) only** fork of FBI: a homebrew title manager with a refreshed UI, safer installs, and a **100% local** “Update my ports” screen for SoulSilver / Platinum CIAs you build yourself.
+[![Latest release](https://img.shields.io/github/v/release/unowncollectables/New3DS-FBI?label=release&logo=github)](https://github.com/unowncollectables/New3DS-FBI/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
+[![Platform](https://img.shields.io/badge/platform-New%203DS-brightgreen.svg)](https://github.com/unowncollectables/New3DS-FBI)
 
-| | |
-|---|---|
-| Title ID | `000400000F83FB00` (UniqueId `0xF83FB`) |
-| Product code | `CTR-P-N3FB` |
-| Outputs | `New3DS-FBI.cia`, `3ds/New3DS-FBI/New3DS-FBI.3dsx` |
+<img src="meta/icon_3ds.png" alt="New3DS FBI icon" width="96" height="96">
 
-It installs **alongside** original FBI (different UniqueId), not over it.
+</div>
 
-## Requirements
+## What it does
 
-- New 2DS XL or New 3DS (XL) — **old 3DS / 2DS are refused at launch**
-- Custom firmware capable of running homebrew (e.g. Luma3DS)
-- For builds: [devkitPro](https://devkitpro.org/) `3ds-dev` + `3ds-curl`, `3ds-zlib`, `3ds-jansson`, citro2d/citro3d
+New3DS FBI is a New 2DS XL / New 3DS (XL) fork of [FBI by Steveice10](https://github.com/Steveice10/FBI). It keeps the familiar title-manager job — install CIAs, manage files and saves — with a clearer UI, safer confirms, and extras that use New 3DS hardware. It installs **alongside** original FBI (different UniqueId), not over it.
+
+Old 3DS / 2DS models are refused at launch.
 
 ## Features
 
-- Browse SD / NAND / TWL photo & sound, titles, tickets, pending titles, save data
-- Install CIAs from the file browser, batch install from `sdmc:/cias/`, remote/URL/QR (with allowlists)
-- **Update my ports** — local overwrite-update for known SoulSilver / Platinum builds (see below)
-- Modernized UI (citro2d progress bars, theme via `sdmc:/fbi/theme/` override (delete an old `textcolor.cfg` there if dialog text looks red))
-- New 3DS hardware: 804 MHz, L2, extended memory; faster double-buffered CIA copies
+### Installing
 
-- **Update this app** — quiet background check for new releases (badge only, never a popup); one-tap install of `New3DS-FBI.cia` for title `0xF83FB` only
-- Kid-friendly main menu labels, top-screen tips, Advanced tools hidden until Settings enables them
-- **Theme: Light / Dark** in Settings (default Light, saved on SD, applies instantly). Custom `sdmc:/fbi/theme/` still wins if present
-- **Accent colour** in Settings — Blue, Green, Purple, or Orange for bars, selection, progress, and buttons
-- Readable dialogs / About screen; storage bar shows SD free space (NAND details when Advanced is on)
-- Free-space and battery checks before installs; install history
-- My installed games: search, letter jump, size labels; leftover ticket/pending finder (Advanced)
-- **Send files from your PC (FTP)** — built-in FTP server (Advanced), SD card only, big on-screen address
+- Install from a URL or a GitHub release asset
+- Batch install every CIA in `sdmc:/cias/` with a progress display
+- Faster installs on New 3DS (804 MHz + L2 via system speedup)
 
-- **Back up my saves** — copy game save data (user titles `00040000` only) to `sdmc:/fbi/saves/…` with icons; restore always asks Yes/No and makes a fresh safety backup first; optional read-only extdata; never system saves
-- **My SD card files** — browse `sdmc:` only from the main menu: copy / cut-move / rename / delete / new folder, multi-select with **Y**, confirm on delete/overwrite, extra warning for `luma`, `Nintendo 3DS`, `boot.firm`, `boot.3dsx`; install a `.cia` only after explicit confirm
-- **About my 3DS** — read-only system info (model, firmware, Luma if found, region, battery, SD space, MAC/IP, free memory); no serials/keys/friend codes by default
+### My ports updater
 
+- Updates known local port CIAs from `sdmc:/cias/` only
+- **Nothing is downloaded** — no network, no GitHub for this path
 
-## Update this app (self-update)
+### Saves
 
-On launch, if Wi-Fi works and **Settings → Check for app updates** is On (default), New3DS FBI quietly asks GitHub for the latest release. That never blocks startup, never shows a popup, and never makes a sound. If a newer version exists, a small **Update available (vX)** line appears on the main screen and on **Update this app**.
+- Back up and restore game save data (user titles)
+- Restore always asks Yes/No and makes a fresh safety backup first
 
-Open **Update this app** to read the changelog and install `New3DS-FBI.cia` in one step (overwrite of title `000400000F83FB00` only; your settings stay). Then restart the app. You can **Skip this version** or turn the check off in Settings / the update screen.
+### File manager
 
+- Browse the SD card: copy, move, rename, delete, new folder
+- Install a `.cia` only after an explicit confirm
 
-## Send files from your PC (FTP)
+### System info
 
-Under **Advanced… → Send files from your PC (FTP)** (Advanced must be enabled in Settings). Opens a single easy screen with a large `ftp://<3DS-IP>:5000` address, short steps for File Explorer / FileZilla, live status (waiting / connected / transfer progress), and **B = stop**.
+- Read-only “About my 3DS” (model, firmware, region, battery, SD space, and similar)
+- No serials, keys, or friend codes by default
 
-- Never auto-starts; only runs while that screen is open
-- Access is limited to **`sdmc:/`** (your SD card) — no NAND or system paths
-- Optional FTP password in Settings (default: none). Use **only on home Wi-Fi**
-- Optional keep-screen-awake (default On) so the console does not sleep mid-transfer
+### FTP
 
-The FTP server is an original MIT-licensed implementation written for this fork (not GPLv3 `mtheall/ftpd`, which is license-incompatible with FBI’s MIT license).
+- Built-in FTP under **Advanced**
+- SD card only
+- Runs **only while its screen is open** (B stops it)
 
-## Settings & Advanced tools
+### Look
 
-Everyday items stay on the main menu. Risky tools (CTR/TWL NAND, Dump NAND, System Save Data, …) live under **Advanced…**, which only appears when **Settings → Show advanced tools** is On (default Off). Turning it on shows a plain-language warning once.
+- Dark mode
+- Accent colours: Blue, Green, Purple, Orange
+- Easy-read UI with top-screen tooltips
 
-## Safety / no-brick rules
+### Safety
 
-- CIA installs use **`AM_StartCiaInstallOverwrite`** — update in place, **no `AM_DeleteTitle`**, save data preserved; cancel/failure rolls back
-- Remote / URL / batch / port paths allow only SD app / update / DLC title types (`00040000` / `0004000E` / `0004008C`) targeting SD — **never** system / NAND / firmware (`AM_InstallFirm` unused)
-- CIA headers are validated before install; unsafe titles are refused with a clear dialog
-- Dump NAND and other power-user tools remain available; use them carefully
+- Nothing installs automatically
+- Every install needs a Yes/No confirm
+- Risky tools stay hidden until **Settings → Show advanced tools** is On
 
-## Update my ports (local only)
+## Install
 
-Pokemon 3DS Builder (`unowncollectables/patch-builder`) copies finished HOME Menu installers to the SD root **`cias/`** folder, e.g.:
+1. Download **`New3DS-FBI.cia`** from [Releases](https://github.com/unowncollectables/New3DS-FBI/releases/latest).
+2. Install it with FBI or another CIA installer.
 
-- `sdmc:/cias/soulsilver3ds.cia`
-- `sdmc:/cias/platinum3ds.cia`
+It uses a different UniqueId from original FBI, so both can sit on the HOME Menu together.
 
-New3DS FBI scans **`sdmc:/cias/`** first (and optionally `sdmc:/fbi/ports/`), matches by title ID only:
+## Building
 
-| Port | Title ID |
-|------|----------|
-| SoulSilver | `000400000F7D4000` |
-| Platinum | `000400000F7D3D00` |
-
-Version display uses the CIA title version and, when present, SMDH publisher text from the builder (e.g. SoulSilver `SS3DS_VERSION` / “run N”). One-tap update overwrite-installs; **nothing is downloaded**, no GitHub/network for ports, no ROM/CIA hosting in this app.
-
-## Build
+Needs [devkitPro](https://devkitpro.org/) with **devkitARM**, **libctru**, **citro2d**, plus **makerom** and **bannertool** on `PATH`.
 
 ```sh
 export DEVKITPRO=/opt/devkitpro
@@ -94,26 +81,18 @@ export DEVKITARM=/opt/devkitpro/devkitARM
 make clean && make -j$(nproc)
 ```
 
-Artifacts:
-
-- `output/3ds-arm/New3DS-FBI.cia`
-- `output/3ds-arm/3ds/New3DS-FBI/New3DS-FBI.3dsx`
-
-Install the CIA with any title manager, or run the `.3dsx` from the Homebrew Launcher.
-
-## Legal
-
-- **No ROMs, encryption keys, or piracy aids** are included or distributed here.
-- SoulSilver / Platinum **ports are built locally by you** from your own dumps via your own tools; this app only installs CIAs you already placed on the SD card.
-- Do not ask this project to host, fetch, or redistribute copyrighted game data.
+Artifacts land under `output/` (e.g. `New3DS-FBI.cia` and the `.3dsx`).
 
 ## Credits
 
-- **Steveice10** — [FBI](https://github.com/Steveice10/FBI), the original open-source 3DS title manager. New3DS FBI exists because of that work.
-- Banner/logo credits from upstream FBI (OctopusRift, Apache Thunder, PabloMK7) where those assets remain; this fork’s HOME Menu icon/banner chrome is original for New3DS FBI.
-- SPI / TWL save protocol information: [TuxSH](https://github.com/TuxSH/) (TWLSaveTool)
-- Fork maintenance: unowncollectables
+**Huge thanks to [Steveice10](https://github.com/Steveice10)** — New3DS FBI is built on [FBI](https://github.com/Steveice10/FBI). That project is the foundation; please give credit where it’s due.
+
+Thanks also to the **devkitPro** and **libctru** contributors who make 3DS homebrew builds possible.
 
 ## License
 
-See [`LICENSE.txt`](LICENSE.txt) — copyright **(C) 2015–2019 Steveice10**. That notice must remain in all copies. Additional New3DS FBI changes are provided under the same terms unless noted otherwise.
+MIT — see [`LICENSE.txt`](LICENSE.txt). The original copyright notice (**© 2015–2019 Steveice10**) is kept and must remain in all copies.
+
+## No piracy
+
+This project does **not** include, host, or point at ROMs, encryption keys, or piracy sources. Put only CIAs you are allowed to use on your own SD card.
