@@ -116,7 +116,12 @@ static Result action_install_cias_open_dst(void* data, u32 index, void* initialR
 
     file_info* info = (file_info*) ((list_item*) linked_list_get(&installData->contents, index))->data;
 
-    FS_MediaType dest = fs_get_title_destination(info->ciaInfo.titleId);
+    /* Stricter: refuse system/firmware/NAND CIAs entirely. */
+    if(!fs_is_remote_install_allowed(info->ciaInfo.titleId)) {
+        return R_APP_BAD_DATA;
+    }
+
+    FS_MediaType dest = MEDIATYPE_SD;
 
     bool n3ds = false;
     if(R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && !n3ds && ((info->ciaInfo.titleId >> 28) & 0xF) == 2) {
@@ -130,20 +135,8 @@ static Result action_install_cias_open_dst(void* data, u32 index, void* initialR
         }
     }
 
-    // Deleting FBI before it reinstalls itself causes issues.
-    u64 currTitleId = 0;
-    FS_MediaType currMediaType = MEDIATYPE_NAND;
-
-    if(envIsHomebrew() || R_FAILED(APT_GetAppletInfo((NS_APPID) envGetAptAppId(), &currTitleId, (u8*) &currMediaType, NULL, NULL, NULL)) || info->ciaInfo.titleId != currTitleId || dest != currMediaType) {
-        AM_DeleteTitle(dest, info->ciaInfo.titleId);
-        AM_DeleteTicket(info->ciaInfo.titleId);
-
-        if(dest == MEDIATYPE_SD) {
-            AM_QueryAvailableExternalTitleDatabase(NULL);
-        }
-    }
-
-    return AM_StartCiaInstall(dest, handle);
+    /* Replace through AM overwrite — never AM_DeleteTitle. */
+    return AM_StartCiaInstallOverwrite(handle, dest);
 }
 
 static Result action_install_cias_close_dst(void* data, u32 index, bool succeeded, u32 handle) {
@@ -155,10 +148,7 @@ static Result action_install_cias_close_dst(void* data, u32 index, bool succeede
         Result res = 0;
         if(R_SUCCEEDED(res = AM_FinishCiaInstall(handle))) {
             http_download_seed(info->ciaInfo.titleId);
-
-            if((info->ciaInfo.titleId & 0xFFFFFFF) == 0x0000002) {
-                res = AM_InstallFirm(info->ciaInfo.titleId);
-            }
+            /* Never AM_InstallFirm / NATIVE_FIRM. */
         }
 
         return res;

@@ -27,5 +27,8 @@ int fs_make_smdh_path(char* out, const char* name, size_t size);
 
 FS_MediaType fs_get_title_destination(u64 titleId);
 
+/* Remote/URL CIA installs: only normal SD apps/updates/DLC. */
+bool fs_is_remote_install_allowed(u64 titleId);
+
 bool fs_filter_cias(void* data, const char* name, u32 attributes);
 bool fs_filter_tickets(void* data, const char* name, u32 attributes);

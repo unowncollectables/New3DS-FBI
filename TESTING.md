@@ -1,27 +1,48 @@
-# Hardware testing — `new3ds-only`
+# Hardware testing — `url-installs`
 
-Build artifacts (from this branch):
+Stacked on `new3ds-only`. Artifacts:
 - `output/3ds-arm/3ds/FBI/FBI.3dsx`
 - `output/3ds-arm/FBI.cia`
 
-## Device under test
-- [ ] New 3DS / New 3DS XL / New 2DS XL only
+Also run the `new3ds-only` TESTING.md checklist on this build first.
 
-## Boot / gate
-- [ ] Install/run CIA or 3dsx on New 3DS family → FBI starts normally
-- [ ] (If available) same build on Old 3DS/2DS → fatal error: requires New 2DS/3DS; press any button to exit; console does not brick
-- [ ] After New 3DS boot, UI is responsive (804MHz + L2 via `osSetSpeedupEnable` / CIA RSF)
+## Menu changes
+- [ ] Remote Install no longer lists “Receive URLs over the network”
+- [ ] Entries present: Scan QR Code, Manually enter URLs, **Install from GitHub release**, Repeat/Forget last request
 
-## Memory / buffers (smoke)
-- [ ] Copy a large folder on SD (Files → paste) without OOM / hang
-- [ ] Install a normal SD CIA from Files; progress completes; title appears under Titles
-- [ ] Cancel (B) mid-install; install aborts cleanly; no half-installed broken title
-- [ ] Network URL install of a small homebrew CIA still works (baseline before `url-installs`)
+## Typed URL install
+- [ ] Enter `https://…/Something.cia` (known-good **homebrew app** CIA) → confirm → progress shows bytes, speed, ETA
+- [ ] B cancels mid-download/install → “cancelled”; no half-installed title
+- [ ] Bad URL / offline → clear error; retry prompt works; no crash
+- [ ] `.3dsx` URL installs under `/3ds/...`; cancel deletes partial file
 
-## CIA metadata (makerom RSF)
-- [ ] Installed CIA reports New3DS extended memory / CPU flags as expected under title info tools if you have them
-- [ ] Reboot console after CIA install; system boots normally (no firm changes in this branch)
+## QR install
+- [ ] Scan QR containing a homebrew CIA URL → same install path as typed URL
+- [ ] B returns from camera; X switches camera
 
-## Safety / no-brick baseline
-- [ ] This branch does not add firm/NAND writers; do not manually install system CIAs while testing
-- [ ] After tests, Home Menu and system settings still work
+## GitHub release install
+- [ ] Enter `owner/repo` (public repo with `.cia`/`.3dsx` on latest release) → asset list with sizes
+- [ ] Also accept `https://github.com/owner/repo`
+- [ ] Reject garbage / invalid names with a clear message
+- [ ] Select a `.cia` asset → confirm → installs with progress; B cancels safely
+- [ ] Repo with no `.cia`/`.3dsx` assets → “no .cia/.3dsx assets”
+- [ ] Unknown repo → “not found” (HTTP 404)
+- [ ] If rate-limited (403/429) → rate-limit message (optional; hard to force)
+- [ ] Low SD space (fill card or pick huge asset) → “Not enough free space” before download when size known
+
+## Safety checks (no bricks) — required
+- [ ] URL/GitHub install of a **system** CIA (category `00040010` / `00040030` / `00040138` NATIVE_FIRM, etc.) is **refused** with “Refused unsafe or invalid CIA…”
+- [ ] Local Files → Install CIA of a system title is **refused** the same way
+- [ ] Successful installs only land on **SD** (Titles list, not NAND system)
+- [ ] Only categories allowed: `00040000` (app), `0004000E` (update), `0004008C` (DLC)
+- [ ] CIA header must parse (`cia_get_title_id`); truncated/garbage CIA → refused
+- [ ] Failed/cancelled CIA install uses `AM_CancelCIAInstall` rollback — title not left half-installed
+- [ ] Install path never calls `AM_InstallFirm` / never writes NATIVE_FIRM
+- [ ] Install path never calls `AM_DeleteTitle` (replace uses `AM_StartCiaInstallOverwrite`)
+- [ ] Tickets for non-allowed title IDs refused on URL install
+- [ ] After refused system CIA attempt: Home Menu, Settings, and system still boot normally
+- [ ] Do **not** test with real system NAND CIAs beyond confirming refusal; do not force-install firmwares
+
+## Regression
+- [ ] Update FBI (self-update) still works with a normal FBI.cia/3dsx release
+- [ ] Titles / Files menus still open

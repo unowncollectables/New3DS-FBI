@@ -99,7 +99,13 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
 
         u64 titleId = 0;
         if(R_SUCCEEDED(res = cia_get_title_id(&titleId, (u8*) initialReadBlock, installData->installInfo.bufferSize))) {
-            FS_MediaType dest = fs_get_title_destination(titleId);
+            /* Refuse system/firmware/NAND titles from URL/GitHub installs. */
+            if(!fs_is_remote_install_allowed(titleId)) {
+                return R_APP_BAD_DATA;
+            }
+
+            /* URL installs always go to SD for allowed categories. */
+            FS_MediaType dest = MEDIATYPE_SD;
 
             bool n3ds = false;
             if(R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && !n3ds && ((titleId >> 28) & 0xF) == 2) {
@@ -113,31 +119,26 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
                 }
             }
 
-            // Deleting FBI before it reinstalls itself causes issues.
-            u64 currTitleId = 0;
-            FS_MediaType currMediaType = MEDIATYPE_NAND;
-
-            if(envIsHomebrew() || R_FAILED(APT_GetAppletInfo((NS_APPID) envGetAptAppId(), &currTitleId, (u8*) &currMediaType, NULL, NULL, NULL)) || titleId != currTitleId || dest != currMediaType) {
-                AM_DeleteTitle(dest, titleId);
-                AM_DeleteTicket(titleId);
-
-                if(dest == MEDIATYPE_SD) {
-                    AM_QueryAvailableExternalTitleDatabase(NULL);
-                }
-            }
-
-            if(R_SUCCEEDED(res = AM_StartCiaInstall(dest, handle))) {
+            /* Overwrite via AM (no AM_DeleteTitle). Cancel rolls back. */
+            if(R_SUCCEEDED(res = AM_StartCiaInstallOverwrite(handle, dest))) {
                 installData->currTitleId = titleId;
             }
+        } else {
+            /* Invalid/truncated CIA header. */
+            res = R_APP_BAD_DATA;
         }
     } else if(*(u16*) initialReadBlock == 0x0100) {
         if(R_SUCCEEDED(res = ticket_get_title_id(&installData->ticketInfo.titleId, (u8*) initialReadBlock, installData->installInfo.bufferSize))) {
+            if(!fs_is_remote_install_allowed(installData->ticketInfo.titleId)) {
+                return R_APP_BAD_DATA;
+            }
+
             installData->contentType = CONTENT_TICKET;
 
             installData->ticketInfo.inUse = false;
             installData->ticketInfo.loaded = true;
 
-            AM_DeleteTicket(installData->ticketInfo.titleId);
+            /* Do not AM_DeleteTicket; install/replace through AM only. */
             res = AMNET_InstallTicketBegin(handle);
         }
     } else if(*(u32*) initialReadBlock == 0x58534433 /* 3DSX */ || *(u32*) initialReadBlock == 0x48444D53 /* SMDH */) {
@@ -189,10 +190,7 @@ static Result action_install_url_close_dst(void* data, u32 index, bool succeeded
         if(installData->contentType == CONTENT_CIA) {
             if(R_SUCCEEDED(res = AM_FinishCiaInstall(handle))) {
                 http_download_seed(installData->currTitleId);
-
-                if(installData->currTitleId == 0x0004013800000002 || installData->currTitleId == 0x0004013820000002) {
-                    res = AM_InstallFirm(installData->currTitleId);
-                }
+                /* Never AM_InstallFirm / touch NATIVE_FIRM from URL installs. */
             }
         } else if(installData->contentType == CONTENT_TICKET) {
             res = AMNET_InstallTicketFinish(handle);
@@ -242,6 +240,12 @@ static Result action_install_url_restore(void* data, u32 index) {
 
 static bool action_install_url_error(void* data, u32 index, Result res, ui_view** errorView) {
     install_url_data* installData = (install_url_data*) data;
+
+    if(res == R_APP_BAD_DATA) {
+        *errorView = error_display_res(data, action_install_url_draw_top, res,
+                                       "Refused unsafe or invalid CIA/ticket.\nOnly SD apps/updates/DLC allowed.");
+        return true;
+    }
 
     char* url = installData->urls[index];
     if(strlen(url) > 38) {

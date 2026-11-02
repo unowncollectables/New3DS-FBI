@@ -1,12 +1,10 @@
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
+#include <ctype.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <3ds.h>
+#include <jansson.h>
 
 #include "resources.h"
 #include "section.h"
@@ -68,175 +66,6 @@ static Result remoteinstall_set_last_urls(const char* urls) {
     }
 
     return res;
-}
-
-typedef struct {
-    int serverSocket;
-    int clientSocket;
-} remoteinstall_network_data;
-
-static int remoteinstall_network_recvwait(int sockfd, void* buf, size_t len, int flags) {
-    errno = 0;
-
-    int ret = 0;
-    size_t read = 0;
-    while((((ret = recv(sockfd, buf + read, len - read, flags)) > 0 && (read += ret) < len) || errno == EAGAIN) && !(hidKeysDown() & KEY_B)) {
-        errno = 0;
-    }
-
-    return ret < 0 ? ret : (int) read;
-}
-
-static int remoteinstall_network_sendwait(int sockfd, void* buf, size_t len, int flags) {
-    errno = 0;
-
-    int ret = 0;
-    size_t written = 0;
-    while((((ret = send(sockfd, buf + written, len - written, flags)) > 0 && (written += ret) < len) || errno == EAGAIN) && !(hidKeysDown() & KEY_B)) {
-        errno = 0;
-    }
-
-    return ret < 0 ? ret : (int) written;
-}
-
-static void remoteinstall_network_close_client(void* data) {
-    remoteinstall_network_data* networkData = (remoteinstall_network_data*) data;
-
-    if(networkData->clientSocket != 0) {
-        u8 ack = 0;
-        remoteinstall_network_sendwait(networkData->clientSocket, &ack, sizeof(ack), 0);
-
-        close(networkData->clientSocket);
-        networkData->clientSocket = 0;
-    }
-}
-
-
-static void remoteinstall_network_free_data(remoteinstall_network_data* data) {
-    remoteinstall_network_close_client(data);
-
-    if(data->serverSocket != 0) {
-        close(data->serverSocket);
-        data->serverSocket = 0;
-    }
-
-    free(data);
-}
-
-static void remoteinstall_network_update(ui_view* view, void* data, float* progress, char* text) {
-    remoteinstall_network_data* networkData = (remoteinstall_network_data*) data;
-
-    if(hidKeysDown() & KEY_B) {
-        ui_pop();
-        info_destroy(view);
-
-        remoteinstall_network_free_data(networkData);
-
-        return;
-    }
-
-    struct sockaddr_in client;
-    socklen_t clientLen = sizeof(client);
-
-    int sock = accept(networkData->serverSocket, (struct sockaddr*) &client, &clientLen);
-    if(sock >= 0) {
-        networkData->clientSocket = sock;
-
-        u32 size = 0;
-        if(remoteinstall_network_recvwait(networkData->clientSocket, &size, sizeof(size), 0) != sizeof(size)) {
-            error_display_errno(NULL, NULL, errno, "Failed to read payload length.");
-
-            remoteinstall_network_close_client(data);
-            return;
-        }
-
-        size = ntohl(size);
-        if(size >= DOWNLOAD_URL_MAX * INSTALL_URLS_MAX) {
-            error_display(NULL, NULL, "Payload too large.");
-
-            remoteinstall_network_close_client(data);
-            return;
-        }
-
-        char* urls = (char*) calloc(size + 1, sizeof(char));
-        if(urls == NULL) {
-            error_display(NULL, NULL, "Failed to allocate URL buffer.");
-
-            remoteinstall_network_close_client(data);
-            return;
-        }
-
-        if(remoteinstall_network_recvwait(networkData->clientSocket, urls, size, 0) != size) {
-            error_display_errno(NULL, NULL, errno, "Failed to read URL(s).");
-
-            free(urls);
-            remoteinstall_network_close_client(data);
-            return;
-        }
-
-        remoteinstall_set_last_urls(urls);
-        action_install_url("Install from the received URL(s)?", urls, NULL, data, NULL, remoteinstall_network_close_client, NULL);
-
-        free(urls);
-    } else if(errno != EAGAIN) {
-        if(errno == 22 || errno == 115) {
-            ui_pop();
-            info_destroy(view);
-        }
-
-        error_display_errno(NULL, NULL, errno, "Failed to open socket.");
-
-        if(errno == 22 || errno == 115) {
-            remoteinstall_network_free_data(networkData);
-
-            return;
-        }
-    }
-
-    struct in_addr addr = {(in_addr_t) gethostid()};
-    snprintf(text, PROGRESS_TEXT_MAX, "Waiting for connection...\nIP: %s\nPort: 5000", inet_ntoa(addr));
-}
-
-static void remoteinstall_receive_urls_network() {
-    remoteinstall_network_data* data = (remoteinstall_network_data*) calloc(1, sizeof(remoteinstall_network_data));
-    if(data == NULL) {
-        error_display(NULL, NULL, "Failed to allocate network install data.");
-
-        return;
-    }
-
-    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if(sock < 0) {
-        error_display_errno(NULL, NULL, errno, "Failed to open server socket.");
-
-        remoteinstall_network_free_data(data);
-        return;
-    }
-
-    data->serverSocket = sock;
-
-    struct sockaddr_in server;
-    server.sin_family = AF_INET;
-    server.sin_port = htons(5000);
-    server.sin_addr.s_addr = (in_addr_t) gethostid();
-
-    if(bind(data->serverSocket, (struct sockaddr*) &server, sizeof(server)) < 0) {
-        error_display_errno(NULL, NULL, errno, "Failed to bind server socket.");
-
-        remoteinstall_network_free_data(data);
-        return;
-    }
-
-    fcntl(data->serverSocket, F_SETFL, fcntl(data->serverSocket, F_GETFL, 0) | O_NONBLOCK);
-
-    if(listen(data->serverSocket, 5) < 0) {
-        error_display_errno(NULL, NULL, errno, "Failed to listen on server socket.");
-
-        remoteinstall_network_free_data(data);
-        return;
-    }
-
-    info_display("Receive URL(s)", "B: Return", false, data, remoteinstall_network_update, NULL);
 }
 
 #define QR_IMAGE_WIDTH 400
@@ -467,9 +296,385 @@ static void remoteinstall_forget_last_request() {
     }
 }
 
-static list_item receive_urls_network = {"Receive URLs over the network", COLOR_TEXT, remoteinstall_receive_urls_network};
+static bool remoteinstall_str_ends_with_ci(const char* str, const char* suffix) {
+    if(str == NULL || suffix == NULL) {
+        return false;
+    }
+
+    size_t strLen = strlen(str);
+    size_t suffixLen = strlen(suffix);
+    if(suffixLen > strLen) {
+        return false;
+    }
+
+    const char* a = str + (strLen - suffixLen);
+    for(size_t i = 0; i < suffixLen; i++) {
+        if(tolower((unsigned char) a[i]) != tolower((unsigned char) suffix[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool remoteinstall_parse_github_repo(const char* input, char* owner, size_t ownerSize, char* repo, size_t repoSize) {
+    if(input == NULL || owner == NULL || repo == NULL || ownerSize == 0 || repoSize == 0) {
+        return false;
+    }
+
+    const char* start = input;
+    while(*start != '\0' && isspace((unsigned char) *start)) {
+        start++;
+    }
+
+    if(strncmp(start, "https://", 8) == 0) {
+        start += 8;
+    } else if(strncmp(start, "http://", 7) == 0) {
+        start += 7;
+    }
+
+    if(strncmp(start, "www.", 4) == 0) {
+        start += 4;
+    }
+
+    if(strncmp(start, "github.com/", 11) == 0) {
+        start += 11;
+    }
+
+    char buf[256];
+    string_copy(buf, start, sizeof(buf));
+
+    char* end = buf + strlen(buf);
+    while(end > buf && isspace((unsigned char) end[-1])) {
+        *--end = '\0';
+    }
+
+    if(end > buf + 4 && strcmp(end - 4, ".git") == 0) {
+        end[-4] = '\0';
+    }
+
+    while(end > buf && end[-1] == '/') {
+        *--end = '\0';
+    }
+
+    char* slash = strchr(buf, '/');
+    if(slash == NULL || slash == buf || slash[1] == '\0') {
+        return false;
+    }
+
+    *slash = '\0';
+    char* repoPart = slash + 1;
+    char* extra = strchr(repoPart, '/');
+    if(extra != NULL) {
+        *extra = '\0';
+    }
+
+    if(strlen(buf) == 0 || strlen(repoPart) == 0) {
+        return false;
+    }
+
+    string_copy(owner, buf, ownerSize);
+    string_copy(repo, repoPart, repoSize);
+    return true;
+}
+
+typedef struct {
+    char* url;
+    u64 size;
+} remoteinstall_github_asset;
+
+typedef struct {
+    list_item** items;
+    remoteinstall_github_asset* assets;
+    u32 count;
+    char listTitle[64];
+} remoteinstall_github_assets_data;
+
+static void remoteinstall_github_free_assets(remoteinstall_github_assets_data* data) {
+    if(data == NULL) {
+        return;
+    }
+
+    if(data->items != NULL) {
+        for(u32 i = 0; i < data->count; i++) {
+            free(data->items[i]);
+        }
+
+        free(data->items);
+        data->items = NULL;
+    }
+
+    if(data->assets != NULL) {
+        for(u32 i = 0; i < data->count; i++) {
+            free(data->assets[i].url);
+        }
+
+        free(data->assets);
+        data->assets = NULL;
+    }
+
+    data->count = 0;
+    free(data);
+}
+
+static bool remoteinstall_sd_has_space(u64 needed) {
+    FS_ArchiveResource resource = {0};
+    if(R_FAILED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_SD))) {
+        /* If we cannot query free space, do not block; AM will fail safely. */
+        return true;
+    }
+
+    u64 freeBytes = (u64) resource.freeClusters * (u64) resource.clusterSize;
+    /* Leave a small cushion for filesystem overhead. */
+    return freeBytes > needed + (2ull * 1024ull * 1024ull);
+}
+
+static void remoteinstall_github_assets_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
+    remoteinstall_github_assets_data* assetsData = (remoteinstall_github_assets_data*) data;
+
+    if(hidKeysDown() & KEY_B) {
+        remoteinstall_github_free_assets(assetsData);
+
+        ui_pop();
+        list_destroy(view);
+        return;
+    }
+
+    if(selected != NULL && (selectedTouched || (hidKeysDown() & KEY_A))) {
+        u32 index = 0;
+        linked_list_iter iter;
+        linked_list_iterate(items, &iter);
+        while(linked_list_iter_has_next(&iter)) {
+            list_item* item = (list_item*) linked_list_iter_next(&iter);
+            if(item == selected) {
+                break;
+            }
+
+            index++;
+        }
+
+        if(index < assetsData->count && assetsData->assets[index].url != NULL) {
+            u64 size = assetsData->assets[index].size;
+            if(size > 0 && !remoteinstall_sd_has_space(size)) {
+                prompt_display_notify("Failure", "Not enough free space on the SD card.", COLOR_TEXT, NULL, NULL, NULL);
+                return;
+            }
+
+            remoteinstall_set_last_urls(assetsData->assets[index].url);
+            action_install_url("Install this GitHub release asset?\n(Unsafe/system CIAs are refused.)",
+                               assetsData->assets[index].url, NULL, NULL, NULL, NULL, NULL);
+        }
+
+        return;
+    }
+
+    if(linked_list_size(items) == 0 && assetsData != NULL) {
+        for(u32 i = 0; i < assetsData->count; i++) {
+            linked_list_add(items, assetsData->items[i]);
+        }
+    }
+}
+
+typedef struct {
+    char apiUrl[DOWNLOAD_URL_MAX];
+    bool painted;
+} remoteinstall_github_fetch_data;
+
+static void remoteinstall_github_show_http_error(Result res) {
+    if(res >= R_APP_HTTP_ERROR_BASE && res < R_APP_HTTP_ERROR_END) {
+        u32 code = (u32) (res - R_APP_HTTP_ERROR_BASE);
+        if(code == 403 || code == 429) {
+            error_display_res(NULL, NULL, res, "GitHub rate limit or access denied.\nWait and try again later.");
+            return;
+        }
+
+        if(code == 404) {
+            error_display_res(NULL, NULL, res, "GitHub repository or release not found.");
+            return;
+        }
+    }
+
+    error_display_res(NULL, NULL, res, "Failed to fetch GitHub release.");
+}
+
+static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* progress, char* text) {
+    remoteinstall_github_fetch_data* fetchData = (remoteinstall_github_fetch_data*) data;
+
+    if(hidKeysDown() & KEY_B) {
+        ui_pop();
+        info_destroy(view);
+        free(fetchData);
+        return;
+    }
+
+    if(!fetchData->painted) {
+        fetchData->painted = true;
+        *progress = 0;
+        snprintf(text, PROGRESS_TEXT_MAX, "Fetching latest release...\nB: Cancel");
+        return;
+    }
+
+    snprintf(text, PROGRESS_TEXT_MAX, "Downloading release metadata...");
+
+    Result res = 0;
+    json_t* json = NULL;
+    remoteinstall_github_assets_data* assetsData = NULL;
+
+    if(R_SUCCEEDED(res = http_download_json(fetchData->apiUrl, &json, 256 * 1024))) {
+        if(json_is_object(json)) {
+            json_t* message = json_object_get(json, "message");
+            if(json_is_string(message)) {
+                /* GitHub error payload masquerading as 200 in rare cases. */
+                res = R_APP_BAD_DATA;
+            } else {
+                json_t* tagName = json_object_get(json, "tag_name");
+                json_t* assets = json_object_get(json, "assets");
+                if(json_is_array(assets)) {
+                    size_t total = json_array_size(assets);
+                    assetsData = (remoteinstall_github_assets_data*) calloc(1, sizeof(remoteinstall_github_assets_data));
+                    if(assetsData == NULL) {
+                        res = R_APP_OUT_OF_MEMORY;
+                    } else {
+                        if(json_is_string(tagName)) {
+                            snprintf(assetsData->listTitle, sizeof(assetsData->listTitle), "Release %s", json_string_value(tagName));
+                        } else {
+                            snprintf(assetsData->listTitle, sizeof(assetsData->listTitle), "GitHub Release Assets");
+                        }
+
+                        if(total > 0) {
+                            assetsData->items = (list_item**) calloc(total, sizeof(list_item*));
+                            assetsData->assets = (remoteinstall_github_asset*) calloc(total, sizeof(remoteinstall_github_asset));
+                            if(assetsData->items == NULL || assetsData->assets == NULL) {
+                                res = R_APP_OUT_OF_MEMORY;
+                            }
+                        }
+                    }
+
+                    if(R_SUCCEEDED(res) && assetsData != NULL && assetsData->items != NULL && assetsData->assets != NULL) {
+                        for(size_t i = 0; i < total; i++) {
+                            json_t* val = json_array_get(assets, i);
+                            if(!json_is_object(val)) {
+                                continue;
+                            }
+
+                            json_t* assetName = json_object_get(val, "name");
+                            json_t* assetUrl = json_object_get(val, "browser_download_url");
+                            json_t* assetSize = json_object_get(val, "size");
+
+                            if(!json_is_string(assetName) || !json_is_string(assetUrl)) {
+                                continue;
+                            }
+
+                            const char* name = json_string_value(assetName);
+                            if(!remoteinstall_str_ends_with_ci(name, ".cia") && !remoteinstall_str_ends_with_ci(name, ".3dsx")) {
+                                continue;
+                            }
+
+                            list_item* item = (list_item*) calloc(1, sizeof(list_item));
+                            const char* srcUrl = json_string_value(assetUrl);
+                            char* urlCopy = (char*) calloc(strlen(srcUrl) + 1, sizeof(char));
+                            if(item == NULL || urlCopy == NULL) {
+                                free(item);
+                                free(urlCopy);
+                                res = R_APP_OUT_OF_MEMORY;
+                                break;
+                            }
+
+                            string_copy(urlCopy, srcUrl, strlen(srcUrl) + 1);
+
+                            u64 size = json_is_integer(assetSize) ? (u64) json_integer_value(assetSize) : 0;
+                            if(size > 0) {
+                                snprintf(item->name, LIST_ITEM_NAME_MAX, "%s (%llu KiB)", name, (unsigned long long) (size / 1024));
+                            } else {
+                                snprintf(item->name, LIST_ITEM_NAME_MAX, "%s", name);
+                            }
+
+                            item->color = COLOR_TEXT;
+                            item->data = NULL;
+
+                            assetsData->items[assetsData->count] = item;
+                            assetsData->assets[assetsData->count].url = urlCopy;
+                            assetsData->assets[assetsData->count].size = size;
+                            assetsData->count++;
+                        }
+                    }
+                } else {
+                    res = R_APP_BAD_DATA;
+                }
+            }
+        } else {
+            res = R_APP_BAD_DATA;
+        }
+
+        json_decref(json);
+    }
+
+    ui_pop();
+    info_destroy(view);
+
+    if(R_SUCCEEDED(res) && assetsData != NULL && assetsData->count > 0) {
+        list_display(assetsData->listTitle, "A: Install, B: Return", assetsData, remoteinstall_github_assets_update, NULL);
+    } else {
+        if(assetsData != NULL) {
+            remoteinstall_github_free_assets(assetsData);
+        }
+
+        if(R_FAILED(res)) {
+            remoteinstall_github_show_http_error(res);
+        } else {
+            prompt_display_notify("Failure", "Latest release has no .cia/.3dsx assets.", COLOR_TEXT, NULL, NULL, NULL);
+        }
+    }
+
+    free(fetchData);
+}
+
+static bool remoteinstall_github_name_ok(const char* s) {
+    if(s == NULL || *s == '\0') {
+        return false;
+    }
+
+    for(const char* p = s; *p != '\0'; p++) {
+        unsigned char c = (unsigned char) *p;
+        if(!(isalnum(c) || c == '-' || c == '_' || c == '.')) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static void remoteinstall_github_onresponse(ui_view* view, void* data, SwkbdButton button, const char* response) {
+    if(button != SWKBD_BUTTON_CONFIRM) {
+        return;
+    }
+
+    char owner[64];
+    char repo[64];
+    if(!remoteinstall_parse_github_repo(response, owner, sizeof(owner), repo, sizeof(repo))
+       || !remoteinstall_github_name_ok(owner)
+       || !remoteinstall_github_name_ok(repo)) {
+        prompt_display_notify("Failure", "Enter owner/repo (or a github.com URL).", COLOR_TEXT, NULL, NULL, NULL);
+        return;
+    }
+
+    remoteinstall_github_fetch_data* fetchData = (remoteinstall_github_fetch_data*) calloc(1, sizeof(remoteinstall_github_fetch_data));
+    if(fetchData == NULL) {
+        error_display_res(NULL, NULL, R_APP_OUT_OF_MEMORY, "Failed to allocate GitHub fetch data.");
+        return;
+    }
+
+    snprintf(fetchData->apiUrl, sizeof(fetchData->apiUrl), "https://api.github.com/repos/%s/%s/releases/latest", owner, repo);
+    info_display("GitHub Release", "B: Cancel", true, fetchData, remoteinstall_github_fetch_update, NULL);
+}
+
+static void remoteinstall_github_release() {
+    kbd_display("GitHub owner/repo", "", SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, 128, NULL, remoteinstall_github_onresponse);
+}
+
 static list_item scan_qr_code = {"Scan QR Code", COLOR_TEXT, remoteinstall_scan_qr_code};
 static list_item manually_enter_urls = {"Manually enter URLs", COLOR_TEXT, remoteinstall_manually_enter_urls};
+static list_item github_release = {"Install from GitHub release", COLOR_TEXT, remoteinstall_github_release};
 static list_item repeat_last_request = {"Repeat last request", COLOR_TEXT, remoteinstall_repeat_last_request};
 static list_item forget_last_request = {"Forget last request", COLOR_TEXT, remoteinstall_forget_last_request};
 
@@ -487,9 +692,9 @@ static void remoteinstall_update(ui_view* view, void* data, linked_list* items, 
     }
 
     if(linked_list_size(items) == 0) {
-        linked_list_add(items, &receive_urls_network);
         linked_list_add(items, &scan_qr_code);
         linked_list_add(items, &manually_enter_urls);
+        linked_list_add(items, &github_release);
         linked_list_add(items, &repeat_last_request);
         linked_list_add(items, &forget_last_request);
     }

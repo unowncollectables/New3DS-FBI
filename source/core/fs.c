@@ -196,6 +196,21 @@ FS_MediaType fs_get_title_destination(u64 titleId) {
     return platform == 0x0003 || (platform == 0x0004 && ((category & 0x8011) != 0 || (category == 0x0000 && variation == 0x02))) ? MEDIATYPE_NAND : MEDIATYPE_SD;
 }
 
+bool fs_is_remote_install_allowed(u64 titleId) {
+    /* High 32 bits are platform+category. Allow only SD application / update / DLC. */
+    u32 high = (u32) (titleId >> 32);
+    if(high != 0x00040000 && high != 0x0004000E && high != 0x0004008C) {
+        return false;
+    }
+
+    /* Belt-and-suspenders: never target NAND. */
+    if(fs_get_title_destination(titleId) != MEDIATYPE_SD) {
+        return false;
+    }
+
+    return true;
+}
+
 bool fs_filter_cias(void* data, const char* name, u32 attributes) {
     if(data != NULL) {
         fs_filter_data* filterData = (fs_filter_data*) data;
