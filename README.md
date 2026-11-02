@@ -1,3 +1,5 @@
+> Fork of Steveice10/FBI, modernized for New 2DS/3DS by unowncollectables. Upstream credit: [Steveice10/FBI](https://github.com/Steveice10/FBI).
+
 # FBI
 
 FBI is an open source title manager for the 3DS.
