@@ -18,3 +18,4 @@ void systemsavedata_open();
 void tickets_open();
 void titles_open();
 void update_open();
+void settings_open();

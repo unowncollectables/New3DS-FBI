@@ -21,11 +21,10 @@ SYSTEM_MODE_EXT := 124MB
 CPU_SPEED := 804MHz
 ENABLE_L2_CACHE := true
 
-VERSION_PARTS := $(subst ., ,$(shell git describe --tags --abbrev=0))
-
-VERSION_MAJOR := $(word 1, $(VERSION_PARTS))
-VERSION_MINOR := $(word 2, $(VERSION_PARTS))
-VERSION_MICRO := $(word 3, $(VERSION_PARTS))
+# App semver (also used by self-update checker).
+VERSION_MAJOR := 3
+VERSION_MINOR := 1
+VERSION_MICRO := 0
 
 DESCRIPTION := Based on FBI by Steveice10. New 2DS/3DS title manager.
 AUTHOR := unowncollectables

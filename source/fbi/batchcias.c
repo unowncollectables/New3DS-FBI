@@ -434,7 +434,7 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
 }
 
 static void batch_cias_select_open(batch_cias_data* data) {
-    list_display("Select CIAs (A: Toggle, X: Install)", "B: Cancel", data, batch_cias_select_update, NULL);
+    list_display("Pick games to install", "A = tick, X = install, B = back", data, batch_cias_select_update, NULL);
 }
 
 /* ---- action menu after scan ---- */
@@ -505,7 +505,7 @@ static void batch_cias_menu_open(batch_cias_data* data) {
 
     char title[64];
     snprintf(title, sizeof(title), "Batch CIAs (%u found)", linked_list_size(&data->contents));
-    list_display(title, "A: Select, B: Cancel", menuData, batch_cias_menu_update, NULL);
+    list_display(title, "A = choose, B = back", menuData, batch_cias_menu_update, NULL);
 }
 
 /* ---- loading /cias ---- */

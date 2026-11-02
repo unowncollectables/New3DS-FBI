@@ -414,7 +414,7 @@ static void port_list_draw_top(ui_view* view, void* data, float x1, float y1, fl
 }
 
 static void port_list_open(port_updater_data* data) {
-    list_display("Update my ports", "A: Update, X: Refresh, B: Back", data, port_list_update, port_list_draw_top);
+    list_display("Update my Pokemon ports", "A = update, X = refresh, B = back", data, port_list_update, port_list_draw_top);
 }
 
 /* ---- scan (primary /cias, then /fbi/ports) ---- */

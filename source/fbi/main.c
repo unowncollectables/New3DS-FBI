@@ -10,6 +10,8 @@
 #include "../core/task/task.h"
 #include "../core/ui/ui.h"
 #include "section.h"
+#include "settings.h"
+#include "selfupdate.h"
 #include "task/uitask.h"
 
 #define CURRENT_KPROCESS (*(void**) 0xFFFF9004)
@@ -158,11 +160,15 @@ void init() {
     screen_init();
     ui_init();
     task_init();
+    settings_init();
+    selfupdate_init();
 }
 
 void cleanup() {
     clipboard_clear();
 
+    selfupdate_exit();
+    settings_exit();
     task_exit();
     ui_exit();
     screen_exit();

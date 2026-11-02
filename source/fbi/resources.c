@@ -82,6 +82,8 @@ void resources_load() {
             screen_set_color(COLOR_HINT, color);
         } else if(strcasecmp(key, "panel") == 0) {
             screen_set_color(COLOR_PANEL, color);
+        } else if(strcasecmp(key, "bartext") == 0) {
+            screen_set_color(COLOR_BAR_TEXT, color);
         }
     }
 

@@ -9,6 +9,9 @@
 #include "../linkedlist.h"
 #include "../../fbi/resources.h"
 
+#define LIST_TEXT_SCALE 0.6f
+#define LIST_ROW_PAD 6.0f
+
 typedef struct {
     void* data;
     linked_list items;
@@ -40,7 +43,7 @@ static void list_validate(list_data* listData, float by1, float by2) {
         }
 
         float viewSize = by2 - by1;
-        float fontHeight = screen_get_font_height(0.5f);
+        float fontHeight = screen_get_font_height(LIST_TEXT_SCALE) + LIST_ROW_PAD;
 
         bool found = false;
         if(listData->selectedItem != NULL) {
@@ -98,7 +101,7 @@ static void list_update(ui_view* view, void* data, float bx1, float by1, float b
         bool scrolls = false;
         if(listData->selectedItem != NULL) {
             float itemWidth;
-            screen_get_string_size(&itemWidth, NULL, listData->selectedItem->name, 0.5f, 0.5f);
+            screen_get_string_size(&itemWidth, NULL, listData->selectedItem->name, LIST_TEXT_SCALE, LIST_TEXT_SCALE);
             if(itemWidth > bx2 - bx1) {
                 scrolls = true;
 
@@ -169,7 +172,7 @@ static void list_update(ui_view* view, void* data, float bx1, float by1, float b
             hidTouchRead(&pos);
 
             if(hidKeysDown() & KEY_TOUCH) {
-                u32 index = (u32) ((listData->scrollPos + (pos.py - by1)) / screen_get_font_height(0.5f));
+                u32 index = (u32) ((listData->scrollPos + (pos.py - by1)) / (screen_get_font_height(LIST_TEXT_SCALE) + LIST_ROW_PAD));
                 if(index >= 0) {
                     if(listData->selectedIndex == index) {
                         selectedTouched = true;
@@ -214,7 +217,7 @@ static void list_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
 
     list_validate(listData, y1, y2);
 
-    float fontHeight = screen_get_font_height(0.5f);
+    float fontHeight = screen_get_font_height(LIST_TEXT_SCALE) + LIST_ROW_PAD;
     float y = y1 - listData->scrollPos;
 
     linked_list_iter iter;
@@ -228,18 +231,29 @@ static void list_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
         list_item* item = linked_list_iter_next(&iter);
 
         if(y > y1 - fontHeight) {
-            float x = x1 + 2;
+            float textH = screen_get_font_height(LIST_TEXT_SCALE);
+            float textY = y + (fontHeight - textH) / 2.0f;
+
+            if(item == listData->selectedItem) {
+                /* Big friendly selected-row highlight */
+                screen_draw_rect(x1, y, x2 - x1, fontHeight, COLOR_ACCENT, true);
+                u32 selectionOverlayWidth = 0;
+                screen_get_texture_size(&selectionOverlayWidth, NULL, TEXTURE_SELECTION_OVERLAY);
+                if(selectionOverlayWidth > 0) {
+                    screen_draw_texture(TEXTURE_SELECTION_OVERLAY, (x1 + x2 - selectionOverlayWidth) / 2, y, selectionOverlayWidth, fontHeight);
+                }
+            }
+
+            float x = x1 + 8;
             if(item == listData->selectedItem) {
                 x -= listData->selectionScroll;
             }
 
-            screen_draw_string(item->name, x, y, 0.5f, 0.5f, item->color, true);
-
+            u32 textColor = item->color;
             if(item == listData->selectedItem) {
-                u32 selectionOverlayWidth = 0;
-                screen_get_texture_size(&selectionOverlayWidth, NULL, TEXTURE_SELECTION_OVERLAY);
-                screen_draw_texture(TEXTURE_SELECTION_OVERLAY, (x1 + x2 - selectionOverlayWidth) / 2, y, selectionOverlayWidth, fontHeight);
+                textColor = COLOR_BAR_TEXT; /* white on accent highlight */
             }
+            screen_draw_string(item->name, x, textY, LIST_TEXT_SCALE, LIST_TEXT_SCALE, textColor, true);
         }
 
         y += fontHeight;

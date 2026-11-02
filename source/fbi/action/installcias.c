@@ -204,7 +204,7 @@ static void action_install_cias_update(ui_view* view, void* data, float* progres
         info_destroy(view);
 
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            prompt_display_notify("Success", "Install finished.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done!", "All done! Your game is installed.\nYou can open it from the Home Menu.", COLOR_TEXT, NULL, NULL, NULL);
         }
 
         action_install_cias_free_data(installData);

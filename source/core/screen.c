@@ -200,10 +200,11 @@ void screen_init() {
     color_config[COLOR_TEXT] = 0xFF1A237E;
     color_config[11] = 0xFF1E88E5; /* accent */
     color_config[12] = 0xFFD32F2F; /* danger */
-    color_config[13] = 0xFFF9A825; /* warning */
+    color_config[13] = 0xFFF57F17; /* warning */
     color_config[14] = 0xFF2E7D32; /* success */
-    color_config[15] = 0xFF607D8B; /* hint */
+    color_config[15] = 0xFF546E7A; /* hint */
     color_config[16] = 0xE6FFFFFF; /* panel */
+    color_config[17] = 0xFFFFFFFF; /* bar text — white on blue bars */
 }
 
 void screen_exit() {

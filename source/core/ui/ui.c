@@ -155,7 +155,7 @@ static void ui_draw_top(ui_view* ui) {
     float verWidth;
     float verHeight;
     screen_get_string_size(&verWidth, &verHeight, verText, 0.5f, 0.5f);
-    screen_draw_string(verText, topScreenTopBarX + 4, topScreenTopBarY + (topScreenTopBarHeight - verHeight) / 2, 0.5f, 0.5f, COLOR_TEXT, true);
+    screen_draw_string(verText, topScreenTopBarX + 4, topScreenTopBarY + (topScreenTopBarHeight - verHeight) / 2, 0.5f, 0.5f, COLOR_BAR_TEXT, true);
 
     time_t t = time(NULL);
     char* timeText = ctime(&t);
@@ -164,7 +164,7 @@ static void ui_draw_top(ui_view* ui) {
     float timeTextWidth;
     float timeTextHeight;
     screen_get_string_size(&timeTextWidth, &timeTextHeight, timeText, 0.5f, 0.5f);
-    screen_draw_string(timeText, topScreenTopBarX + (topScreenTopBarWidth - timeTextWidth) / 2, topScreenTopBarY + (topScreenTopBarHeight - timeTextHeight) / 2, 0.5f, 0.5f, COLOR_TEXT, true);
+    screen_draw_string(timeText, topScreenTopBarX + (topScreenTopBarWidth - timeTextWidth) / 2, topScreenTopBarY + (topScreenTopBarHeight - timeTextHeight) / 2, 0.5f, 0.5f, COLOR_BAR_TEXT, true);
 
     u32 batteryIcon = 0;
     u8 batteryChargeState = 0;
@@ -257,9 +257,9 @@ static void ui_draw_top(ui_view* ui) {
     }
 
     float freeSpaceHeight;
-    screen_get_string_size(NULL, &freeSpaceHeight, ui_free_space_buffer, 0.4f, 0.4f);
+    screen_get_string_size(NULL, &freeSpaceHeight, ui_free_space_buffer, 0.42f, 0.42f);
 
-    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 4, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, 0.4f, 0.4f, COLOR_TEXT, true);
+    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 4, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, 0.42f, 0.42f, COLOR_BAR_TEXT, true);
 
     screen_set_base_alpha(0xFF);
 }
@@ -313,7 +313,7 @@ static void ui_draw_bottom(ui_view* ui) {
         float nameWidth;
         float nameHeight;
         screen_get_string_size(&nameWidth, &nameHeight, ui->name, 0.55f, 0.55f);
-        screen_draw_string(ui->name, (BOTTOM_SCREEN_WIDTH - nameWidth) / 2, (bottomScreenTopBarHeight - nameHeight) / 2, 0.55f, 0.55f, COLOR_TEXT, true);
+        screen_draw_string(ui->name, (BOTTOM_SCREEN_WIDTH - nameWidth) / 2, (bottomScreenTopBarHeight - nameHeight) / 2, 0.55f, 0.55f, COLOR_BAR_TEXT, true);
     }
 
     if(ui->info != NULL) {
@@ -329,7 +329,7 @@ static void ui_draw_bottom(ui_view* ui) {
         float infoHeight;
         screen_get_string_size(&infoWidth, &infoHeight, ui->info, 0.5f * scale, 0.5f * scale);
 
-        screen_draw_string(ui->info, (BOTTOM_SCREEN_WIDTH - infoWidth) / 2, BOTTOM_SCREEN_HEIGHT - (bottomScreenBottomBarHeight + infoHeight) / 2, 0.5f * scale, 0.5f * scale, COLOR_TEXT, true);
+        screen_draw_string(ui->info, (BOTTOM_SCREEN_WIDTH - infoWidth) / 2, BOTTOM_SCREEN_HEIGHT - (bottomScreenBottomBarHeight + infoHeight) / 2, 0.5f * scale, 0.5f * scale, COLOR_BAR_TEXT, true);
     }
 
     screen_set_base_alpha(0xFF);

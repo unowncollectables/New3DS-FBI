@@ -9,6 +9,13 @@
 #include "../task/uitask.h"
 #include "../../core/core.h"
 
+/* If non-zero, CIA installs from URL must match this title ID (self-update). */
+static u64 install_url_required_title_id = 0;
+
+void action_install_url_set_required_title_id(u64 titleId) {
+    install_url_required_title_id = titleId;
+}
+
 typedef enum content_type_e {
     CONTENT_CIA,
     CONTENT_TICKET,
@@ -35,6 +42,7 @@ typedef struct {
 } install_url_data;
 
 static void action_install_url_free_data(install_url_data* data) {
+    install_url_required_title_id = 0;
     if(data->finishedAll != NULL) {
         data->finishedAll(data->userData);
     }
@@ -101,6 +109,10 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
         if(R_SUCCEEDED(res = cia_get_title_id(&titleId, (u8*) initialReadBlock, installData->installInfo.bufferSize))) {
             /* Refuse system/firmware/NAND titles from URL/GitHub installs. */
             if(!fs_is_remote_install_allowed(titleId)) {
+                return R_APP_BAD_DATA;
+            }
+
+            if(install_url_required_title_id != 0 && titleId != install_url_required_title_id) {
                 return R_APP_BAD_DATA;
             }
 
@@ -265,7 +277,7 @@ static void action_install_url_install_update(ui_view* view, void* data, float* 
         info_destroy(view);
 
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            prompt_display_notify("Success", "Install finished.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done!", "All done! Install finished.\nYou can open it from the Home Menu.", COLOR_TEXT, NULL, NULL, NULL);
         }
 
         action_install_url_free_data(installData);

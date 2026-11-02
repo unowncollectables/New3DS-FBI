@@ -47,5 +47,6 @@
 #define COLOR_SUCCESS 14
 #define COLOR_HINT 15
 #define COLOR_PANEL 16
+#define COLOR_BAR_TEXT 17
 
 void resources_load();

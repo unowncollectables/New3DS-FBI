@@ -27,6 +27,20 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 - Modernized UI (citro2d progress bars, theme via `sdmc:/fbi/theme/` override)
 - New 3DS hardware: 804 MHz, L2, extended memory; faster double-buffered CIA copies
 
+- **Update this app** — quiet background check for new releases (badge only, never a popup); one-tap install of `New3DS-FBI.cia` for title `0xF83FB` only
+- Kid-friendly main menu labels, top-screen tips, Advanced tools hidden until Settings enables them
+
+
+## Update this app (self-update)
+
+On launch, if Wi-Fi works and **Settings → Check for app updates** is On (default), New3DS FBI quietly asks GitHub for the latest release. That never blocks startup, never shows a popup, and never makes a sound. If a newer version exists, a small **Update available (vX)** line appears on the main screen and on **Update this app**.
+
+Open **Update this app** to read the changelog and install `New3DS-FBI.cia` in one step (overwrite of title `000400000F83FB00` only; your settings stay). Then restart the app. You can **Skip this version** or turn the check off in Settings / the update screen.
+
+## Settings & Advanced tools
+
+Everyday items stay on the main menu. Risky tools (CTR/TWL NAND, Dump NAND, System Save Data, …) live under **Advanced…**, which only appears when **Settings → Show advanced tools** is On (default Off). Turning it on shows a plain-language warning once.
+
 ## Safety / no-brick rules
 
 - CIA installs use **`AM_StartCiaInstallOverwrite`** — update in place, **no `AM_DeleteTitle`**, save data preserved; cancel/failure rolls back

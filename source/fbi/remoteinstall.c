@@ -613,7 +613,7 @@ static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* 
     info_destroy(view);
 
     if(R_SUCCEEDED(res) && assetsData != NULL && assetsData->count > 0) {
-        list_display(assetsData->listTitle, "A: Install, B: Return", assetsData, remoteinstall_github_assets_update, NULL);
+        list_display(assetsData->listTitle, "A = install, B = back", assetsData, remoteinstall_github_assets_update, NULL);
     } else {
         if(assetsData != NULL) {
             remoteinstall_github_free_assets(assetsData);
@@ -672,11 +672,11 @@ static void remoteinstall_github_release() {
     kbd_display("GitHub owner/repo", "", SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, 128, NULL, remoteinstall_github_onresponse);
 }
 
-static list_item scan_qr_code = {"Scan QR Code", COLOR_TEXT, remoteinstall_scan_qr_code};
-static list_item manually_enter_urls = {"Manually enter URLs", COLOR_TEXT, remoteinstall_manually_enter_urls};
-static list_item github_release = {"Install from GitHub release", COLOR_TEXT, remoteinstall_github_release};
-static list_item repeat_last_request = {"Repeat last request", COLOR_TEXT, remoteinstall_repeat_last_request};
-static list_item forget_last_request = {"Forget last request", COLOR_TEXT, remoteinstall_forget_last_request};
+static list_item scan_qr_code = {"Scan a QR code", COLOR_TEXT, remoteinstall_scan_qr_code};
+static list_item manually_enter_urls = {"Type a download link", COLOR_TEXT, remoteinstall_manually_enter_urls};
+static list_item github_release = {"Install from GitHub", COLOR_TEXT, remoteinstall_github_release};
+static list_item repeat_last_request = {"Try the last link again", COLOR_TEXT, remoteinstall_repeat_last_request};
+static list_item forget_last_request = {"Forget the last link", COLOR_TEXT, remoteinstall_forget_last_request};
 
 static void remoteinstall_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
     if(hidKeysDown() & KEY_B) {
@@ -701,5 +701,5 @@ static void remoteinstall_update(ui_view* view, void* data, linked_list* items, 
 }
 
 void remoteinstall_open() {
-    list_display("Remote Install", "A: Select, B: Return", NULL, remoteinstall_update, NULL);
+    list_display("Install from the internet", "A = choose, B = back", NULL, remoteinstall_update, NULL);
 }

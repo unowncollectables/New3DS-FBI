@@ -211,14 +211,14 @@ ui_view* prompt_display_multi_choice(const char* name, const char* text, u32 col
 
 ui_view* prompt_display_notify(const char* name, const char* text, u32 color, void* data, void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2),
                                                                                           void (*onResponse)(ui_view* view, void* data, u32 response)) {
-    static const char* options[1] = {"OK"};
+    static const char* options[1] = {"OK, got it"};
     static u32 optionButtons[1] = {PROMPT_BUTTON_ANY};
     return prompt_display_multi_choice(name, text, color, options, optionButtons, 1, data, drawTop, onResponse);
 }
 
 ui_view* prompt_display_yes_no(const char* name, const char* text, u32 color, void* data, void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2),
                                                                                           void (*onResponse)(ui_view* view, void* data, u32 response)) {
-    static const char* options[2] = {"Yes", "No"};
+    static const char* options[2] = {"Yes, do it", "No, go back"};
     static u32 optionButtons[2] = {KEY_A, KEY_B};
     return prompt_display_multi_choice(name, text, color, options, optionButtons, 2, data, drawTop, onResponse);
 }
