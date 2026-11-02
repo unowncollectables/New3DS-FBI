@@ -9,6 +9,7 @@
 #include <3ds.h>
 
 #include "jukebox.h"
+#include "cardcalc.h"
 #include "resources.h"
 #include "../core/core.h"
 #include "../libs/minimp3/minimp3.h"
@@ -533,6 +534,11 @@ static void jb_update(ui_view* view, void* data, float* progress, char* text) {
         return;
     }
 
+    if(down & KEY_SELECT) {
+        cardcalc_open();
+        return;
+    }
+
     if(!d->ndspOk || d->songCount == 0) {
         return;
     }
@@ -594,9 +600,9 @@ void jukebox_open(void) {
 
     const char* hints;
     if(!d->ndspOk || d->songCount == 0) {
-        hints = "B = back";
+        hints = "SELECT = Card show calculator, B = back";
     } else {
-        hints = "A = play/pause, L/R = prev/next, X = shuffle, B = back";
+        hints = "A = play/pause, L/R = prev/next, X = shuffle, SELECT = Card show calculator, B = back";
     }
 
     ui_view* view = info_display("Jukebox", hints, false, d, jb_update, jb_draw_top);

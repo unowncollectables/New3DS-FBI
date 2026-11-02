@@ -13,7 +13,6 @@
 #include "savebackup.h"
 #include "sysinfo.h"
 #include "jukebox.h"
-#include "cardcalc.h"
 #include "task/uitask.h"
 #include "../core/core.h"
 
@@ -141,9 +140,8 @@ static void about_draw_top(ui_view* view, void* data, float x1, float y1, float 
     screen_draw_string(credit, x1 + (x2 - x1 - w) / 2, y2 - h - 6.0f, 0.45f, 0.45f, COLOR_HINT, true);
 }
 
-static float s_aboutTitleX1, s_aboutTitleY1, s_aboutTitleX2, s_aboutTitleY2;
-static int s_aboutTitleTaps = 0;
-static u64 s_aboutTitleTapMs = 0;
+static int s_aboutBottomTaps = 0;
+static u64 s_aboutBottomTapMs = 0;
 
 static void about_update(ui_view* view, void* data, float* progress, char* text) {
     (void) data;
@@ -153,45 +151,24 @@ static void about_update(ui_view* view, void* data, float* progress, char* text)
     }
 
     u32 down = hidKeysDown();
-    u32 held = hidKeysHeld();
 
-    /* Hidden: L+R+Y combo, or press Y 5 times quickly */
-    static int s_yTaps = 0;
-    static u64 s_yTapMs = 0;
-    u32 both = held | down;
-    if(down & KEY_Y) {
+    /* Tap anywhere on the bottom screen 5 times (within 2s) to open Jukebox. */
+    if(down & KEY_TOUCH) {
         u64 now = osGetTime();
-        if(now - s_yTapMs > 2000) s_yTaps = 0;
-        s_yTapMs = now;
-        s_yTaps++;
-        if(((both & (KEY_L | KEY_R)) == (KEY_L | KEY_R)) || s_yTaps >= 5) {
-            s_yTaps = 0;
-            cardcalc_open();
+        if(now - s_aboutBottomTapMs > 2000) {
+            s_aboutBottomTaps = 0;
+        }
+        s_aboutBottomTapMs = now;
+        s_aboutBottomTaps++;
+        if(s_aboutBottomTaps >= 5) {
+            s_aboutBottomTaps = 0;
+            jukebox_open();
             return;
         }
     }
 
-    if(down & KEY_TOUCH) {
-        touchPosition pos;
-        hidTouchRead(&pos);
-        if(pos.px >= s_aboutTitleX1 && pos.px <= s_aboutTitleX2 &&
-           pos.py >= s_aboutTitleY1 && pos.py <= s_aboutTitleY2) {
-            u64 now = osGetTime();
-            if(now - s_aboutTitleTapMs > 2000) {
-                s_aboutTitleTaps = 0;
-            }
-            s_aboutTitleTapMs = now;
-            s_aboutTitleTaps++;
-            if(s_aboutTitleTaps >= 5) {
-                s_aboutTitleTaps = 0;
-                jukebox_open();
-                return;
-            }
-        }
-    }
-
     if(down & (KEY_B | KEY_A | KEY_START)) {
-        s_aboutTitleTaps = 0;
+        s_aboutBottomTaps = 0;
         ui_pop();
         info_destroy(view);
     }
@@ -211,11 +188,6 @@ static void about_draw_bottom(ui_view* view, void* data, float x1, float y1, flo
     screen_get_string_size(&w, &h, line, 0.6f, 0.6f);
     float titleX = x1 + (x2 - x1 - w) / 2;
     screen_draw_string(line, titleX, y, 0.6f, 0.6f, COLOR_TEXT, true);
-    /* Hit box for hidden title taps (touch coords are absolute screen space). */
-    s_aboutTitleX1 = titleX - 8.0f;
-    s_aboutTitleY1 = y - 4.0f;
-    s_aboutTitleX2 = titleX + w + 8.0f;
-    s_aboutTitleY2 = y + h + 4.0f;
     y += h + 10.0f;
 
     const char* body =
@@ -236,8 +208,8 @@ static void about_draw_bottom(ui_view* view, void* data, float x1, float y1, flo
 }
 
 void about_open(void) {
-    s_aboutTitleTaps = 0;
-    s_aboutTitleTapMs = 0;
+    s_aboutBottomTaps = 0;
+    s_aboutBottomTapMs = 0;
     ui_view* view = info_display("About / Credits", "A / B = back", false, NULL, about_update, about_draw_top);
     if(view != NULL) {
         view->drawBottom = about_draw_bottom;
