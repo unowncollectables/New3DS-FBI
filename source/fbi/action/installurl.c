@@ -382,7 +382,7 @@ void action_install_url(const char* confirmMessage, const char* urls, const char
 
     data->installInfo.op = DATAOP_DOWNLOAD;
 
-    data->installInfo.bufferSize = 128 * 1024;
+    data->installInfo.bufferSize = 1024 * 1024;
 
     data->installInfo.processed = data->installInfo.total;
 

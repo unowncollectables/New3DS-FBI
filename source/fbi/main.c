@@ -88,7 +88,7 @@ void cleanup_services() {
 Result init_services() {
     Result res = 0;
 
-    soc_buffer = memalign(0x1000, 0x100000);
+    soc_buffer = memalign(0x1000, 0x200000);
     if(soc_buffer != NULL) {
         Handle tempAM = 0;
         if(R_SUCCEEDED(res = srvGetServiceHandle(&tempAM, "am:net"))) {
@@ -100,7 +100,7 @@ Result init_services() {
                && INIT_SERVICE(ptmuInit(), ptmuExit)
                && INIT_SERVICE(pxiDevInit(), pxiDevExit)
                && INIT_SERVICE(httpcInit(0), httpcExit)
-               && INIT_SERVICE(socInit(soc_buffer, 0x100000), (void (*)()) socExit));
+               && INIT_SERVICE(socInit(soc_buffer, 0x200000), (void (*)()) socExit));
         }
     } else {
         res = R_APP_OUT_OF_MEMORY;
@@ -117,6 +117,13 @@ static u32 old_time_limit = UINT32_MAX;
 
 void init() {
     gfxInitDefault();
+
+    bool isNew3DS = false;
+    APT_CheckNew3DS(&isNew3DS);
+    if(!isNew3DS) {
+        error_panic("FBI requires a New 2DS XL / New 3DS (XL).\nOld 3DS / 2DS models are not supported.");
+        return;
+    }
 
     Result romfsRes = romfsInit();
     if(R_FAILED(romfsRes)) {

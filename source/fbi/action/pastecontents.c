@@ -348,7 +348,7 @@ void action_paste_contents(linked_list* items, list_item* selected) {
 
     data->pasteInfo.op = DATAOP_COPY;
 
-    data->pasteInfo.bufferSize = 256 * 1024;
+    data->pasteInfo.bufferSize = 1024 * 1024;
     data->pasteInfo.copyEmpty = true;
 
     data->pasteInfo.isSrcDirectory = action_paste_contents_is_src_directory;

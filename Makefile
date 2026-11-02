@@ -15,6 +15,11 @@ EXTRA_OUTPUT_FILES := servefiles
 
 BUILD_FLAGS := -Wno-format-truncation -D__3DS__
 
+# New 2DS/3DS only: extended app memory + 804MHz + L2 (RSF/CIA).
+SYSTEM_MODE_EXT := 124MB
+CPU_SPEED := 804MHz
+ENABLE_L2_CACHE := true
+
 VERSION_PARTS := $(subst ., ,$(shell git describe --tags --abbrev=0))
 
 VERSION_MAJOR := $(word 1, $(VERSION_PARTS))

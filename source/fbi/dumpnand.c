@@ -140,7 +140,7 @@ void dumpnand_open() {
 
     data->op = DATAOP_COPY;
 
-    data->bufferSize = 256 * 1024;
+    data->bufferSize = 1024 * 1024;
     data->copyEmpty = true;
 
     data->total = 1;
