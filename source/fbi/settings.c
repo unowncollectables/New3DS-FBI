@@ -15,6 +15,7 @@
 static bool g_show_advanced = false;
 static bool g_advanced_warned = false;
 static bool g_ftp_keep_awake = true;
+static bool g_dark_theme = false;
 static char g_ftp_password[FTP_PASSWORD_MAX];
 static bool g_inited = false;
 
@@ -30,6 +31,7 @@ static void settings_load(void) {
     g_show_advanced = false;
     g_advanced_warned = false;
     g_ftp_keep_awake = true;
+    g_dark_theme = false;
     g_ftp_password[0] = '\0';
 
     settings_ensure_dir();
@@ -51,6 +53,9 @@ static void settings_load(void) {
                 g_ftp_keep_awake = !(val[0] == '0' || strcasecmp(val, "false") == 0 || strcasecmp(val, "off") == 0);
             } else if(strcasecmp(key, "ftp_password") == 0) {
                 string_copy(g_ftp_password, val, sizeof(g_ftp_password));
+            } else if(strcasecmp(key, "dark_theme") == 0 || strcasecmp(key, "theme") == 0) {
+                g_dark_theme = (val[0] == '1' || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0
+                                || strcasecmp(val, "dark") == 0);
             }
         }
     }
@@ -67,6 +72,7 @@ static void settings_save(void) {
     fprintf(fd, "advanced_warned=%d\n", g_advanced_warned ? 1 : 0);
     fprintf(fd, "ftp_keep_awake=%d\n", g_ftp_keep_awake ? 1 : 0);
     fprintf(fd, "ftp_password=%s\n", g_ftp_password);
+    fprintf(fd, "dark_theme=%d\n", g_dark_theme ? 1 : 0);
     fclose(fd);
 }
 
@@ -75,6 +81,7 @@ void settings_init(void) {
         return;
     }
     settings_load();
+    resources_set_dark(g_dark_theme);
     g_inited = true;
 }
 
@@ -125,11 +132,23 @@ void settings_set_ftp_keep_awake(bool keep) {
     settings_save();
 }
 
+bool settings_dark_theme(void) {
+    if(!g_inited) settings_init();
+    return g_dark_theme;
+}
+
+void settings_set_dark_theme(bool dark) {
+    g_dark_theme = dark;
+    settings_save();
+    resources_set_dark(dark);
+}
+
 static list_item s_auto_check = {"Check for app updates: On", COLOR_TEXT, NULL};
 static list_item s_advanced = {"Show advanced tools: Off", COLOR_TEXT, NULL};
 static list_item s_ftp_pass = {"FTP password: (none)", COLOR_TEXT, NULL};
 static list_item s_ftp_awake = {"FTP keep screen awake: On", COLOR_TEXT, NULL};
-static list_item s_sound = {"Play done chime: On", COLOR_TEXT, NULL};
+static list_item s_theme = {"Theme: Light", COLOR_TEXT, NULL};
+static list_item s_sound = {"Done screen extras: On", COLOR_TEXT, NULL};
 static list_item s_about_hint = {"About / Credits", COLOR_HINT, NULL};
 
 static void settings_refresh_labels(void) {
@@ -154,6 +173,9 @@ static void settings_refresh_labels(void) {
     bool sound = extras_sound_on_done();
     snprintf(s_sound.name, LIST_ITEM_NAME_MAX, "Done screen extras: %s", sound ? "On" : "Off");
     s_sound.color = sound ? COLOR_ENABLED : COLOR_DISABLED;
+
+    snprintf(s_theme.name, LIST_ITEM_NAME_MAX, "Theme: %s", g_dark_theme ? "Dark" : "Light");
+    s_theme.color = g_dark_theme ? COLOR_ACCENT : COLOR_TEXT;
 }
 
 static void settings_advanced_onresponse(ui_view* view, void* data, u32 response) {
@@ -201,6 +223,8 @@ static void settings_draw_top(ui_view* view, void* data, float x1, float y1, flo
         tip = "Optional password for FTP. Leave empty for easy use at home. Only use FTP on your home Wi-Fi.";
     } else if(selected == &s_ftp_awake) {
         tip = "When On, the screen stays awake while the FTP screen is open so transfers are not interrupted.";
+    } else if(selected == &s_theme) {
+        tip = "Light or Dark look. Changes right away. If you put a theme in sdmc:/fbi/theme/, that still wins.";
     } else if(selected == &s_sound) {
         tip = "When On, the Done screen shows how long the install took. Recent installs are always saved.";
     } else if(selected == &s_about_hint) {
@@ -263,6 +287,21 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
             settings_set_ftp_keep_awake(!settings_ftp_keep_awake());
             return;
         }
+        if(selected == &s_theme) {
+            if(resources_sd_color_override()) {
+                prompt_display_notify(
+                    "Custom theme on SD",
+                    "A theme file is on your SD card:\n"
+                    "sdmc:/fbi/theme/textcolor.cfg\n\n"
+                    "That theme is used instead of\n"
+                    "Light / Dark. Remove or rename\n"
+                    "the file to use this setting.",
+                    COLOR_TEXT, NULL, NULL, NULL);
+            } else {
+                settings_set_dark_theme(!settings_dark_theme());
+            }
+            return;
+        }
         if(selected == &s_sound) {
             extras_set_sound_on_done(!extras_sound_on_done());
             return;
@@ -275,6 +314,7 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
 
     if(linked_list_size(items) == 0) {
         linked_list_add(items, &s_auto_check);
+        linked_list_add(items, &s_theme);
         linked_list_add(items, &s_advanced);
         linked_list_add(items, &s_ftp_pass);
         linked_list_add(items, &s_ftp_awake);

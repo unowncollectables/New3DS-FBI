@@ -184,11 +184,11 @@ static void prompt_draw_bottom(ui_view* view, void* data, float x1, float y1, fl
 
     float textX = x1 + PROMPT_PAD;
     float textY = contentTop - promptData->scroll;
-    /* Body text: always near-black COLOR_TEXT for readability on light panel. */
+    /* Body text: COLOR_TEXT on COLOR_PANEL (works in light and dark). */
     screen_draw_string_wrap(promptData->text, textX, textY, PROMPT_TEXT_SCALE, PROMPT_TEXT_SCALE, COLOR_TEXT, true, x2 - PROMPT_PAD);
 
     /* Opaque footer covers any overflowing text so buttons never overlap body. */
-    screen_draw_rect(x1, contentBottom, x2 - x1, footerH, 0xFFFFFFFF, false);
+    screen_draw_rect(x1, contentBottom, x2 - x1, footerH, COLOR_PANEL, true);
     screen_draw_rect(x1 + 4.0f, contentBottom, (x2 - x1) - 8.0f, 2.0f, COLOR_HINT, true);
 
     if(promptData->contentHeight > (contentBottom - contentTop)) {

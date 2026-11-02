@@ -69,7 +69,7 @@ static void tickets_action_open(linked_list* items, list_item* selected) {
     data->items = items;
     data->selected = selected;
 
-    list_display("Ticket Action", "A: Select, B: Return", data, tickets_action_update, tickets_action_draw_top);
+    list_display("Ticket Action", "A = choose, B = back", data, tickets_action_update, tickets_action_draw_top);
 }
 
 static void tickets_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -137,5 +137,5 @@ void tickets_open() {
 
     data->populateData.finished = true;
 
-    list_display("Tickets", "A: Select, B: Return, X: Refresh", data, tickets_update, tickets_draw_top);
+    list_display("Tickets", "A = choose, B = back, X = refresh", data, tickets_update, tickets_draw_top);
 }

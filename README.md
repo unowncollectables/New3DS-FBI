@@ -29,6 +29,7 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 
 - **Update this app** — quiet background check for new releases (badge only, never a popup); one-tap install of `New3DS-FBI.cia` for title `0xF83FB` only
 - Kid-friendly main menu labels, top-screen tips, Advanced tools hidden until Settings enables them
+- **Theme: Light / Dark** in Settings (default Light, saved on SD, applies instantly). Custom `sdmc:/fbi/theme/` still wins if present
 - Readable dialogs / About screen; storage bar shows SD free space (NAND details when Advanced is on)
 - Free-space and battery checks before installs; install history
 - My installed games: search, letter jump, size labels; leftover ticket/pending finder (Advanced)

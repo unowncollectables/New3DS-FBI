@@ -116,7 +116,7 @@ static void titles_action_open(linked_list* items, list_item* selected) {
     data->items = items;
     data->selected = selected;
 
-    list_display("Title Action", "A: Select, B: Return", data, titles_action_update, titles_action_draw_top);
+    list_display("Title Action", "A = choose, B = back", data, titles_action_update, titles_action_draw_top);
 }
 
 static void titles_options_add_entry(linked_list* items, const char* name, bool* val) {
@@ -189,7 +189,7 @@ static void titles_options_update(ui_view* view, void* data, linked_list* items,
 }
 
 static void titles_options_open(titles_data* data) {
-    list_display("Options", "A: Toggle, B: Return", data, titles_options_update, NULL);
+    list_display("Options", "A = toggle, B = back", data, titles_options_update, NULL);
 }
 
 

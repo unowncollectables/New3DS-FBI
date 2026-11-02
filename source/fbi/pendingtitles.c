@@ -69,7 +69,7 @@ static void pendingtitles_action_open(linked_list* items, list_item* selected) {
     data->items = items;
     data->selected = selected;
 
-    list_display("Pending Title Action", "A: Select, B: Return", data, pendingtitles_action_update, pendingtitles_action_draw_top);
+    list_display("Pending Title Action", "A = choose, B = back", data, pendingtitles_action_update, pendingtitles_action_draw_top);
 }
 
 static void pendingtitles_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -137,5 +137,5 @@ void pendingtitles_open() {
 
     data->populateData.finished = true;
 
-    list_display("Pending Titles", "A: Select, B: Return, X: Refresh", data, pendingtitles_update, pendingtitles_draw_top);
+    list_display("Pending Titles", "A = choose, B = back, X = refresh", data, pendingtitles_update, pendingtitles_draw_top);
 }

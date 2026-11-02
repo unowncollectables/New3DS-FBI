@@ -306,7 +306,7 @@ static void action_install_url_confirm_onresponse(ui_view* view, void* data, u32
     if(response == PROMPT_YES) {
         Result res = task_data_op(&installData->installInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Installing From URL(s)", "Press B to cancel.", true, data, action_install_url_install_update, action_install_url_draw_top);
+            info_display("Installing From URL(s)", "B = cancel", true, data, action_install_url_install_update, action_install_url_draw_top);
         } else {
             error_display_res(NULL, NULL, res, "Failed to initiate installation.");
 

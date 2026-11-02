@@ -133,6 +133,9 @@ static void ui_draw_top(ui_view* ui) {
     screen_get_texture_size(&topScreenBottomBarShadowWidth, &topScreenBottomBarShadowHeight, TEXTURE_TOP_SCREEN_BOTTOM_BAR_SHADOW);
 
     screen_draw_texture(TEXTURE_TOP_SCREEN_BG, (TOP_SCREEN_WIDTH - topScreenBgWidth) / 2, (TOP_SCREEN_HEIGHT - topScreenBgHeight) / 2, topScreenBgWidth, topScreenBgHeight);
+    if(resources_dark_fill_enabled()) {
+        screen_draw_rect(0, 0, TOP_SCREEN_WIDTH, TOP_SCREEN_HEIGHT, 0xFF121212, false);
+    }
 
     if(ui->drawTop != NULL) {
         ui->drawTop(ui, ui->data, 0, topScreenTopBarHeight, TOP_SCREEN_WIDTH, TOP_SCREEN_HEIGHT - topScreenBottomBarHeight);
@@ -273,6 +276,9 @@ static void ui_draw_bottom(ui_view* ui) {
     screen_get_texture_size(&bottomScreenBottomBarShadowWidth, &bottomScreenBottomBarShadowHeight, TEXTURE_BOTTOM_SCREEN_BOTTOM_BAR_SHADOW);
 
     screen_draw_texture(TEXTURE_BOTTOM_SCREEN_BG, (BOTTOM_SCREEN_WIDTH - bottomScreenBgWidth) / 2, (BOTTOM_SCREEN_HEIGHT - bottomScreenBgHeight) / 2, bottomScreenBgWidth, bottomScreenBgHeight);
+    if(resources_dark_fill_enabled()) {
+        screen_draw_rect(0, 0, BOTTOM_SCREEN_WIDTH, BOTTOM_SCREEN_HEIGHT, 0xFF121212, false);
+    }
 
     screen_set_base_alpha(ui_fade_alpha);
 

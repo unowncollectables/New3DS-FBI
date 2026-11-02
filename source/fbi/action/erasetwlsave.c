@@ -116,7 +116,7 @@ static void action_erase_twl_save_onresponse(ui_view* view, void* data, u32 resp
 
         Result res = task_data_op(&eraseData->eraseInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Erasing Save", "Press B to cancel.", true, data, action_erase_twl_save_update, action_erase_twl_save_draw_top);
+            info_display("Erasing Save", "B = cancel", true, data, action_erase_twl_save_update, action_erase_twl_save_draw_top);
         } else {
             error_display_res(eraseData->title, task_draw_title_info, res, "Failed to initiate save erase.");
             free(data);
