@@ -392,7 +392,7 @@ static void save_backup_progress(ui_view* view, void* data, float* progress, cha
                      "Save backed up!\n\n%s\n\nFolder on SD:\n%.180s\n\n(No extdata, or skipped.)",
                      ctx->titleName, folder);
         }
-        prompt_display_notify("Done!", msg, COLOR_TEXT, NULL, NULL, NULL);
+        prompt_display_notify("Done!", msg, COLOR_ACCENT, NULL, NULL, NULL);
     } else if(R_MODULE(res) == RM_FS && (R_SUMMARY(res) == RS_NOTFOUND || res == (Result) 0xC8804478)) {
         /* Common "not found" / no save — show friendly */
         prompt_display_notify(
@@ -451,7 +451,7 @@ static void save_restore_run(ui_view* view, void* data, float* progress, char* t
         } else {
             snprintf(msg, sizeof(msg), "Save restored!");
         }
-        prompt_display_notify("Done!", msg, COLOR_TEXT, NULL, NULL, NULL);
+        prompt_display_notify("Done!", msg, COLOR_ACCENT, NULL, NULL, NULL);
     } else {
         error_display_res(NULL, NULL, res, "Could not restore this save.");
     }

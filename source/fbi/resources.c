@@ -9,6 +9,7 @@
 
 static bool g_sd_color_override = false;
 static bool g_dark = false;
+static u32 g_accent = RESOURCES_ACCENT_BLUE;
 
 static FILE* resources_open_file(const char* path) {
     char realPath[FILE_PATH_MAX];
@@ -140,6 +141,51 @@ void resources_apply_builtin_palette(bool dark) {
     }
 }
 
+
+void resources_apply_accent(void) {
+    /* Bright = selection/progress/highlights; dark = header/footer bars. AARRGGBB. */
+    u32 bright;
+    u32 darkBar;
+    switch(g_accent) {
+        case RESOURCES_ACCENT_GREEN:
+            bright = 0xFF22C55E;
+            darkBar = 0xFF16A34A;
+            break;
+        case RESOURCES_ACCENT_PURPLE:
+            bright = 0xFFA855F7;
+            darkBar = 0xFF7E22CE;
+            break;
+        case RESOURCES_ACCENT_ORANGE:
+            bright = 0xFFF97316;
+            darkBar = 0xFFEA580C;
+            break;
+        case RESOURCES_ACCENT_BLUE:
+        default:
+            bright = g_dark ? 0xFF42A5F5 : 0xFF1E88E5;
+            darkBar = g_dark ? 0xFF1E88E5 : 0xFF1565C0;
+            break;
+    }
+    if(!g_sd_color_override) {
+        screen_set_color(COLOR_ACCENT, bright);
+    } else {
+        /* Still drive selection/progress accent when user picks a colour. */
+        screen_set_color(COLOR_ACCENT, bright);
+    }
+    screen_set_color(COLOR_BAR, darkBar);
+}
+
+u32 resources_get_accent(void) {
+    return g_accent;
+}
+
+void resources_set_accent(u32 accent) {
+    if(accent > RESOURCES_ACCENT_ORANGE) {
+        accent = RESOURCES_ACCENT_BLUE;
+    }
+    g_accent = accent;
+    resources_apply_accent();
+}
+
 bool resources_sd_color_override(void) {
     return g_sd_color_override;
 }
@@ -155,10 +201,10 @@ bool resources_dark_fill_enabled(void) {
 
 void resources_set_dark(bool dark) {
     g_dark = dark;
-    if(g_sd_color_override) {
-        return; /* SD textcolor.cfg wins */
+    if(!g_sd_color_override) {
+        resources_apply_builtin_palette(dark);
     }
-    resources_apply_builtin_palette(dark);
+    resources_apply_accent();
 }
 
 void resources_load() {
@@ -174,6 +220,7 @@ void resources_load() {
         /* Built-in Light/Dark — g_dark may already be set by settings_init. */
         resources_apply_builtin_palette(g_dark);
     }
+    resources_apply_accent();
 
     resources_load_texture(TEXTURE_BOTTOM_SCREEN_BG, "bottom_screen_bg.png");
     resources_load_texture(TEXTURE_BOTTOM_SCREEN_TOP_BAR, "bottom_screen_top_bar.png");

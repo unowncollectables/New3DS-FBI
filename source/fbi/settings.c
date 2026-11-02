@@ -16,6 +16,7 @@ static bool g_show_advanced = false;
 static bool g_advanced_warned = false;
 static bool g_ftp_keep_awake = true;
 static bool g_dark_theme = false;
+static u32 g_accent = 0; /* Blue */
 static char g_ftp_password[FTP_PASSWORD_MAX];
 static bool g_inited = false;
 
@@ -32,6 +33,7 @@ static void settings_load(void) {
     g_advanced_warned = false;
     g_ftp_keep_awake = true;
     g_dark_theme = false;
+    g_accent = 0;
     g_ftp_password[0] = '\0';
 
     settings_ensure_dir();
@@ -56,6 +58,12 @@ static void settings_load(void) {
             } else if(strcasecmp(key, "dark_theme") == 0 || strcasecmp(key, "theme") == 0) {
                 g_dark_theme = (val[0] == '1' || strcasecmp(val, "true") == 0 || strcasecmp(val, "on") == 0
                                 || strcasecmp(val, "dark") == 0);
+            } else if(strcasecmp(key, "accent") == 0) {
+                if(strcasecmp(val, "green") == 0) g_accent = 1;
+                else if(strcasecmp(val, "purple") == 0) g_accent = 2;
+                else if(strcasecmp(val, "orange") == 0) g_accent = 3;
+                else if(val[0] >= '0' && val[0] <= '3') g_accent = (u32) (val[0] - '0');
+                else g_accent = 0;
             }
         }
     }
@@ -73,6 +81,7 @@ static void settings_save(void) {
     fprintf(fd, "ftp_keep_awake=%d\n", g_ftp_keep_awake ? 1 : 0);
     fprintf(fd, "ftp_password=%s\n", g_ftp_password);
     fprintf(fd, "dark_theme=%d\n", g_dark_theme ? 1 : 0);
+    fprintf(fd, "accent=%u\n", (unsigned) g_accent);
     fclose(fd);
 }
 
@@ -82,6 +91,7 @@ void settings_init(void) {
     }
     settings_load();
     resources_set_dark(g_dark_theme);
+    resources_set_accent(g_accent);
     g_inited = true;
 }
 
@@ -143,11 +153,33 @@ void settings_set_dark_theme(bool dark) {
     resources_set_dark(dark);
 }
 
+static const char* settings_accent_name(u32 a) {
+    switch(a) {
+        case 1: return "Green";
+        case 2: return "Purple";
+        case 3: return "Orange";
+        default: return "Blue";
+    }
+}
+
+u32 settings_accent(void) {
+    if(!g_inited) settings_init();
+    return g_accent;
+}
+
+void settings_set_accent(u32 accent) {
+    if(accent > 3) accent = 0;
+    g_accent = accent;
+    settings_save();
+    resources_set_accent(accent);
+}
+
 static list_item s_auto_check = {"Check for app updates: On", COLOR_TEXT, NULL};
 static list_item s_advanced = {"Show advanced tools: Off", COLOR_TEXT, NULL};
 static list_item s_ftp_pass = {"FTP password: (none)", COLOR_TEXT, NULL};
 static list_item s_ftp_awake = {"FTP keep screen awake: On", COLOR_TEXT, NULL};
 static list_item s_theme = {"Theme: Light", COLOR_TEXT, NULL};
+static list_item s_accent = {"Accent colour: Blue", COLOR_ACCENT, NULL};
 static list_item s_sound = {"Done screen extras: On", COLOR_TEXT, NULL};
 static list_item s_about_hint = {"About / Credits", COLOR_HINT, NULL};
 
@@ -176,6 +208,9 @@ static void settings_refresh_labels(void) {
 
     snprintf(s_theme.name, LIST_ITEM_NAME_MAX, "Theme: %s", g_dark_theme ? "Dark" : "Light");
     s_theme.color = g_dark_theme ? COLOR_ACCENT : COLOR_TEXT;
+
+    snprintf(s_accent.name, LIST_ITEM_NAME_MAX, "Accent colour: %s", settings_accent_name(g_accent));
+    s_accent.color = COLOR_ACCENT;
 }
 
 static void settings_advanced_onresponse(ui_view* view, void* data, u32 response) {
@@ -225,6 +260,8 @@ static void settings_draw_top(ui_view* view, void* data, float x1, float y1, flo
         tip = "When On, the screen stays awake while the FTP screen is open so transfers are not interrupted.";
     } else if(selected == &s_theme) {
         tip = "Light or Dark look. Changes right away. If you put a theme in sdmc:/fbi/theme/, that still wins.";
+    } else if(selected == &s_accent) {
+        tip = "Colour for the top and bottom bars, selected rows, progress bars, and buttons. Try Green!";
     } else if(selected == &s_sound) {
         tip = "When On, the Done screen shows how long the install took. Recent installs are always saved.";
     } else if(selected == &s_about_hint) {
@@ -302,6 +339,10 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
             }
             return;
         }
+        if(selected == &s_accent) {
+            settings_set_accent((settings_accent() + 1) % 4);
+            return;
+        }
         if(selected == &s_sound) {
             extras_set_sound_on_done(!extras_sound_on_done());
             return;
@@ -315,6 +356,7 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
     if(linked_list_size(items) == 0) {
         linked_list_add(items, &s_auto_check);
         linked_list_add(items, &s_theme);
+        linked_list_add(items, &s_accent);
         linked_list_add(items, &s_advanced);
         linked_list_add(items, &s_ftp_pass);
         linked_list_add(items, &s_ftp_awake);

@@ -352,6 +352,7 @@ static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_
 void mainmenu_open(void) {
     resources_load();
     resources_set_dark(settings_dark_theme());
+    resources_set_accent(settings_accent());
     settings_init();
     selfupdate_init();
     selfupdate_start_background_check();

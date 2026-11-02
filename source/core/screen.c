@@ -204,7 +204,8 @@ void screen_init() {
     color_config[14] = 0xFF2E7D32; /* success */
     color_config[15] = 0xFF546E7A; /* hint */
     color_config[16] = 0xE6FFFFFF; /* panel */
-    color_config[17] = 0xFFFFFFFF; /* bar text — white on blue bars */
+    color_config[17] = 0xFFFFFFFF; /* bar text — white on accent bars */
+    color_config[18] = 0xFF1565C0; /* COLOR_BAR default blue */
 }
 
 void screen_exit() {
