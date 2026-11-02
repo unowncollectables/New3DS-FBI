@@ -50,3 +50,10 @@
 #define COLOR_BAR_TEXT 17
 
 void resources_load();
+
+/* Built-in Light/Dark palettes. SD textcolor.cfg still wins when present. */
+bool resources_sd_color_override(void);
+bool resources_is_dark(void);
+void resources_set_dark(bool dark); /* applies instantly unless SD override */
+void resources_apply_builtin_palette(bool dark);
+bool resources_dark_fill_enabled(void); /* dark chrome overlay for default BGs */

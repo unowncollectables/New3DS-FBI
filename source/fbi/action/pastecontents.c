@@ -282,7 +282,7 @@ static void action_paste_contents_onresponse(ui_view* view, void* data, u32 resp
     if(response == PROMPT_YES) {
         Result res = task_data_op(&pasteData->pasteInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Pasting Contents", "Press B to cancel.", true, data, action_paste_contents_update, action_paste_contents_draw_top);
+            info_display("Pasting Contents", "B = cancel", true, data, action_paste_contents_update, action_paste_contents_draw_top);
         } else {
             error_display_res(NULL, NULL, res, "Failed to initiate paste operation.");
 
@@ -419,5 +419,5 @@ void action_paste_contents(linked_list* items, list_item* selected) {
         return;
     }
 
-    info_display("Loading", "Press B to cancel.", false, loadingData, action_paste_contents_loading_update, action_paste_contents_loading_draw_top);
+    info_display("Loading", "B = cancel", false, loadingData, action_paste_contents_loading_update, action_paste_contents_loading_draw_top);
 }

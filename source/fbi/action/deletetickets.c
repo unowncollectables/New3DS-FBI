@@ -102,7 +102,7 @@ static void action_delete_tickets_onresponse(ui_view* view, void* data, u32 resp
     if(response == PROMPT_YES) {
         Result res = task_data_op(&deleteData->deleteInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Deleting", "Press B to cancel.", true, data, action_delete_tickets_update, action_delete_tickets_draw_top);
+            info_display("Deleting", "B = cancel", true, data, action_delete_tickets_update, action_delete_tickets_draw_top);
         } else {
             error_display_res(NULL, NULL, res, "Failed to initiate delete operation.");
 
@@ -215,7 +215,7 @@ static void action_delete_tickets_internal(linked_list* items, list_item* select
             return;
         }
 
-        info_display("Loading", "Press B to cancel.", false, loadingData, action_delete_tickets_loading_update, action_delete_tickets_loading_draw_top);
+        info_display("Loading", "B = cancel", false, loadingData, action_delete_tickets_loading_update, action_delete_tickets_loading_draw_top);
     } else {
         linked_list_add(&data->contents, selected);
 

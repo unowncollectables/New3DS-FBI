@@ -1,4 +1,4 @@
-# Hardware testing — New3DS FBI v3.4.0
+# Hardware testing — New3DS FBI v3.5.0
 
 ## Builder / paths
 - Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
@@ -64,7 +64,7 @@
 - [ ] Sleep stays off during installs (existing dataop); lid-safe
 
 
-## v3.4.0 — Save backup, SD files, About my 3DS
+## v3.5.0 — Save backup, SD files, About my 3DS
 
 ### Back up my saves
 - [ ] Main menu shows **Back up my saves**

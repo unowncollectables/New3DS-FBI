@@ -237,11 +237,16 @@ static void list_draw_bottom(ui_view* view, void* data, float x1, float y1, floa
             if(item == listData->selectedItem) {
                 /* Big friendly selected-row highlight */
                 screen_draw_rect(x1, y, x2 - x1, fontHeight, COLOR_ACCENT, true);
-                u32 selectionOverlayWidth = 0;
-                screen_get_texture_size(&selectionOverlayWidth, NULL, TEXTURE_SELECTION_OVERLAY);
-                if(selectionOverlayWidth > 0) {
-                    screen_draw_texture(TEXTURE_SELECTION_OVERLAY, (x1 + x2 - selectionOverlayWidth) / 2, y, selectionOverlayWidth, fontHeight);
+                if(!resources_is_dark()) {
+                    u32 selectionOverlayWidth = 0;
+                    screen_get_texture_size(&selectionOverlayWidth, NULL, TEXTURE_SELECTION_OVERLAY);
+                    if(selectionOverlayWidth > 0) {
+                        screen_draw_texture(TEXTURE_SELECTION_OVERLAY, (x1 + x2 - selectionOverlayWidth) / 2, y, selectionOverlayWidth, fontHeight);
+                    }
                 }
+            } else if(resources_is_dark()) {
+                /* Subtle dark row so list text stays readable */
+                screen_draw_rect(x1, y, x2 - x1, fontHeight, 0xE61A1A1A, false);
             }
 
             float x = x1 + 8;

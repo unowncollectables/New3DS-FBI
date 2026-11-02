@@ -363,7 +363,7 @@ static void batch_cias_start_install(batch_cias_data* data) {
 
     Result res = task_data_op(&data->installInfo);
     if(R_SUCCEEDED(res)) {
-        info_display("Batch Installing CIAs", "Press B to cancel.", true, data, batch_cias_install_update, batch_cias_draw_top);
+        info_display("Batch Installing CIAs", "B = cancel", true, data, batch_cias_install_update, batch_cias_draw_top);
     } else {
         error_display_res(NULL, NULL, res, "Failed to start batch install.");
         batch_cias_free_data(data);
@@ -596,5 +596,5 @@ void batchcias_open() {
         return;
     }
 
-    info_display("Batch CIAs", "Press B to cancel.", false, loadingData, batch_cias_loading_update, NULL);
+    info_display("Batch CIAs", "B = cancel", false, loadingData, batch_cias_loading_update, NULL);
 }

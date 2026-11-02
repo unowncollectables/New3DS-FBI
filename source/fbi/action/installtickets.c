@@ -187,7 +187,7 @@ static void action_install_tickets_onresponse(ui_view* view, void* data, u32 res
     if(response == PROMPT_YES) {
         Result res = task_data_op(&installData->installInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Installing ticket(s)", "Press B to cancel.", true, data, action_install_tickets_update, action_install_tickets_draw_top);
+            info_display("Installing ticket(s)", "B = cancel", true, data, action_install_tickets_update, action_install_tickets_draw_top);
         } else {
             error_display_res(NULL, NULL, res, "Failed to initiate ticket installation.");
 
@@ -323,7 +323,7 @@ static void action_install_tickets_internal(linked_list* items, list_item* selec
         return;
     }
 
-    info_display("Loading", "Press B to cancel.", false, loadingData, action_install_tickets_loading_update, action_install_tickets_loading_draw_top);
+    info_display("Loading", "B = cancel", false, loadingData, action_install_tickets_loading_update, action_install_tickets_loading_draw_top);
 }
 
 void action_install_ticket(linked_list* items, list_item* selected) {

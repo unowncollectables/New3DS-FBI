@@ -106,7 +106,7 @@ static void action_delete_pending_titles_onresponse(ui_view* view, void* data, u
     if(response == PROMPT_YES) {
         Result res = task_data_op(&deleteData->deleteInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Deleting Pending Title(s)", "Press B to cancel.", true, data, action_delete_pending_titles_update, action_delete_pending_titles_draw_top);
+            info_display("Deleting Pending Title(s)", "B = cancel", true, data, action_delete_pending_titles_update, action_delete_pending_titles_draw_top);
         } else {
             error_display_res(NULL, NULL, res, "Failed to initiate delete operation.");
 
@@ -209,7 +209,7 @@ void action_delete_pending_titles(linked_list* items, list_item* selected, const
             return;
         }
 
-        info_display("Loading", "Press B to cancel.", false, loadingData, action_delete_pending_titles_loading_update, action_delete_pending_titles_loading_draw_top);
+        info_display("Loading", "B = cancel", false, loadingData, action_delete_pending_titles_loading_update, action_delete_pending_titles_loading_draw_top);
     } else {
         linked_list_add(&data->contents, selected);
 

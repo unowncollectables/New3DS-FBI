@@ -606,5 +606,5 @@ void portupdater_open() {
         return;
     }
 
-    info_display("Update my ports", "Press B to cancel.", false, loadingData, port_loading_update, NULL);
+    info_display("Update my ports", "B = cancel", false, loadingData, port_loading_update, NULL);
 }

@@ -25,6 +25,10 @@ void task_draw_meta_info(ui_view* view, void* data, float x1, float y1, float x2
     float metaInfoBoxX = x1 + (x2 - x1 - metaInfoBoxWidth) / 2;
     float metaInfoBoxY = y1 + (y2 - y1) / 4 - metaInfoBoxHeight / 2;
     screen_draw_texture(TEXTURE_META_INFO_BOX, metaInfoBoxX, metaInfoBoxY, metaInfoBoxWidth, metaInfoBoxHeight);
+    if(resources_is_dark()) {
+        /* Cover the light meta box so light theme text colors stay readable. */
+        screen_draw_rect(metaInfoBoxX, metaInfoBoxY, (float) metaInfoBoxWidth, (float) metaInfoBoxHeight, 0xF01E1E1E, false);
+    }
 
     if(info->texture != 0) {
         u32 iconWidth;

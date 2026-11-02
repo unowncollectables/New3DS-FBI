@@ -21,3 +21,7 @@ void settings_set_ftp_password(const char* password);
 /* When true, FTP screen keeps the console awake. Default on. */
 bool settings_ftp_keep_awake(void);
 void settings_set_ftp_keep_awake(bool keep);
+
+/* Theme: false = Light (default), true = Dark. SD textcolor.cfg still wins. */
+bool settings_dark_theme(void);
+void settings_set_dark_theme(bool dark);

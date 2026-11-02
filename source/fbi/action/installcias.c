@@ -440,7 +440,7 @@ static void action_install_cias_internal(linked_list* items, list_item* selected
         return;
     }
 
-    info_display("Loading", "Press B to cancel.", false, loadingData, action_install_cias_loading_update, action_install_cias_loading_draw_top);
+    info_display("Loading", "B = cancel", false, loadingData, action_install_cias_loading_update, action_install_cias_loading_draw_top);
 }
 
 void action_install_cia(linked_list* items, list_item* selected) {

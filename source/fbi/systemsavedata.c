@@ -69,7 +69,7 @@ static void systemsavedata_action_open(linked_list* items, list_item* selected) 
     data->items = items;
     data->selected = selected;
 
-    list_display("System Save Data Action", "A: Select, B: Return", data, systemsavedata_action_update, systemsavedata_action_draw_top);
+    list_display("System Save Data Action", "A = choose, B = back", data, systemsavedata_action_update, systemsavedata_action_draw_top);
 }
 
 static void systemsavedata_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -137,5 +137,5 @@ void systemsavedata_open() {
 
     data->populateData.finished = true;
 
-    list_display("System Save Data", "A: Select, B: Return, X: Refresh", data, systemsavedata_update, systemsavedata_draw_top);
+    list_display("System Save Data", "A = choose, B = back, X = refresh", data, systemsavedata_update, systemsavedata_draw_top);
 }
