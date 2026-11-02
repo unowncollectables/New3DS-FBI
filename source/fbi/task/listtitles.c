@@ -64,6 +64,15 @@ static Result task_populate_titles_add_ctr(populate_titles_data* data, FS_MediaT
                     snprintf(item->name, LIST_ITEM_NAME_MAX, "%016llX", titleId);
                 }
 
+                {
+                    char baseName[LIST_ITEM_NAME_MAX];
+                    string_copy(baseName, item->name, sizeof(baseName));
+                    snprintf(item->name, LIST_ITEM_NAME_MAX, "%s  (%.1f %s)",
+                             baseName,
+                             ui_get_display_size(titleInfo->installedSize),
+                             ui_get_display_size_units(titleInfo->installedSize));
+                }
+
                 if(mediaType == MEDIATYPE_NAND) {
                     item->color = COLOR_NAND;
                 } else if(mediaType == MEDIATYPE_SD) {

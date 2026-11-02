@@ -7,6 +7,7 @@
 #include "section.h"
 #include "settings.h"
 #include "selfupdate.h"
+#include "extras.h"
 #include "../core/core.h"
 
 #define SETTINGS_CFG_PATH "/fbi/settings.cfg"
@@ -128,6 +129,7 @@ static list_item s_auto_check = {"Check for app updates: On", COLOR_TEXT, NULL};
 static list_item s_advanced = {"Show advanced tools: Off", COLOR_TEXT, NULL};
 static list_item s_ftp_pass = {"FTP password: (none)", COLOR_TEXT, NULL};
 static list_item s_ftp_awake = {"FTP keep screen awake: On", COLOR_TEXT, NULL};
+static list_item s_sound = {"Play done chime: On", COLOR_TEXT, NULL};
 static list_item s_about_hint = {"About / Credits", COLOR_HINT, NULL};
 
 static void settings_refresh_labels(void) {
@@ -148,6 +150,10 @@ static void settings_refresh_labels(void) {
     snprintf(s_ftp_awake.name, LIST_ITEM_NAME_MAX, "FTP keep screen awake: %s",
              g_ftp_keep_awake ? "On" : "Off");
     s_ftp_awake.color = g_ftp_keep_awake ? COLOR_ENABLED : COLOR_DISABLED;
+
+    bool sound = extras_sound_on_done();
+    snprintf(s_sound.name, LIST_ITEM_NAME_MAX, "Done screen extras: %s", sound ? "On" : "Off");
+    s_sound.color = sound ? COLOR_ENABLED : COLOR_DISABLED;
 }
 
 static void settings_advanced_onresponse(ui_view* view, void* data, u32 response) {
@@ -195,6 +201,8 @@ static void settings_draw_top(ui_view* view, void* data, float x1, float y1, flo
         tip = "Optional password for FTP. Leave empty for easy use at home. Only use FTP on your home Wi-Fi.";
     } else if(selected == &s_ftp_awake) {
         tip = "When On, the screen stays awake while the FTP screen is open so transfers are not interrupted.";
+    } else if(selected == &s_sound) {
+        tip = "When On, the Done screen shows how long the install took. Recent installs are always saved.";
     } else if(selected == &s_about_hint) {
         tip = "See who made this app and credits for FBI by Steveice10.";
     }
@@ -255,6 +263,10 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
             settings_set_ftp_keep_awake(!settings_ftp_keep_awake());
             return;
         }
+        if(selected == &s_sound) {
+            extras_set_sound_on_done(!extras_sound_on_done());
+            return;
+        }
         if(selected == &s_about_hint) {
             about_open();
             return;
@@ -266,6 +278,7 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
         linked_list_add(items, &s_advanced);
         linked_list_add(items, &s_ftp_pass);
         linked_list_add(items, &s_ftp_awake);
+        linked_list_add(items, &s_sound);
         linked_list_add(items, &s_about_hint);
     }
 }

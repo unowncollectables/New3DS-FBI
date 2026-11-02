@@ -21,3 +21,4 @@ void update_open();
 void settings_open();
 void ftp_open();
 void about_open();
+void leftovers_open();

@@ -1,4 +1,4 @@
-# Hardware testing — New3DS FBI v3.2.1
+# Hardware testing — New3DS FBI v3.3.0
 
 ## Builder / paths
 - Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
@@ -6,7 +6,7 @@
 
 ## Rebrand / version
 - [ ] HOME Menu shows **New3DS FBI**; installs beside original FBI
-- [ ] Top bar shows **Ver. 3.2.1** (not 2.6.1)
+- [ ] Top bar shows **Ver. 3.3.0** (not 2.6.1)
 - [ ] SMDH description mentions **Based on FBI by Steveice10**
 - [ ] Main menu title **New3DS FBI**; Steveice10 credit on top screen; **About / Credits**
 
@@ -49,7 +49,16 @@
 - [ ] Optional password from Settings enforced when set
 - [ ] Keep screen awake toggle works (Settings + X on FTP screen)
 
-## UI polish (v3.2.1)
+## UI polish (v3.3.0)
 - [ ] About is a full screen (not cramped prompt); top shows Steveice10 tip; body near-black; B/A back
 - [ ] Prompt/confirm/error: body never under buttons; Up/Down scrolls long text; button labels readable
 - [ ] Top bar storage shows "SD: X GB free" by default; NAND lines only with Advanced on; no clip off-screen
+
+## v3.3.0 extras
+- [ ] Install blocked with clear message when SD free space < CIA size
+- [ ] Low battery + not charging warns/blocks before install
+- [ ] Done screen shows time; Recent installs lists history
+- [ ] FTP Y = Install .cia I send; after upload, safe install prompt/flow
+- [ ] My installed games: Y search, L/R letter, sizes shown; icon on top
+- [ ] Advanced leftover finder lists unused user tickets + pending; delete confirms
+- [ ] Sleep stays off during installs (existing dataop); lid-safe

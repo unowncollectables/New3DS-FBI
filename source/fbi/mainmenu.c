@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "selfupdate.h"
 #include "ftp.h"
+#include "extras.h"
 #include "task/uitask.h"
 #include "../core/core.h"
 
@@ -22,6 +23,7 @@ static list_item mm_remote = {"Install from the internet", COLOR_TEXT, remoteins
 static list_item mm_batch = {"Install games from SD (/cias)", COLOR_TEXT, batchcias_open};
 static list_item mm_ports = {"Update my Pokemon ports", COLOR_TEXT, portupdater_open};
 static list_item mm_update = {"Update this app", COLOR_TEXT, update_open};
+static list_item mm_history = {"Recent installs", COLOR_TEXT, extras_history_open};
 static list_item mm_settings = {"Settings", COLOR_TEXT, settings_open};
 static list_item mm_advanced = {"Advanced…", COLOR_WARNING, NULL};
 static list_item mm_about = {"About / Credits", COLOR_HINT, NULL};
@@ -34,6 +36,7 @@ static list_item adv_twl_sound = {"TWL Sound", COLOR_TEXT, files_open_twl_sound}
 static list_item adv_dump_nand = {"Dump NAND", COLOR_TEXT, dumpnand_open};
 static list_item adv_syssave = {"System Save Data", COLOR_TEXT, systemsavedata_open};
 static list_item adv_ftp = {"Send files from your PC (FTP)", COLOR_TEXT, ftp_open};
+static list_item adv_leftovers = {"Find leftover tickets / installs", COLOR_TEXT, leftovers_open};
 
 static const char* mainmenu_tooltip(list_item* selected) {
     if(selected == &mm_sd) {
@@ -65,6 +68,9 @@ static const char* mainmenu_tooltip(list_item* selected) {
             return "A newer New3DS FBI is ready. Open this to read the notes and install it.";
         }
         return "Check for a newer New3DS FBI, read the notes, and install when you want.";
+    }
+    if(selected == &mm_history) {
+        return "See games you installed recently with this app.";
     }
     if(selected == &mm_settings) {
         return "Turn options on or off, like update checks and Advanced tools.";
@@ -99,6 +105,9 @@ static const char* advanced_tooltip(list_item* selected) {
     }
     if(selected == &adv_ftp) {
         return "Share your SD card with a computer over Wi-Fi. Easy copy of files. Home Wi-Fi only.";
+    }
+    if(selected == &adv_leftovers) {
+        return "Find tickets or unfinished installs with no game. You choose what to delete.";
     }
     return "Advanced tool — be careful.";
 }
@@ -227,6 +236,7 @@ static void mainmenu_rebuild(linked_list* items) {
     linked_list_add(items, &mm_batch);
     linked_list_add(items, &mm_ports);
     linked_list_add(items, &mm_update);
+    linked_list_add(items, &mm_history);
     linked_list_add(items, &mm_settings);
     if(settings_show_advanced()) {
         linked_list_add(items, &mm_advanced);
@@ -271,6 +281,7 @@ static void advanced_update(ui_view* view, void* data, linked_list* items, list_
 
     if(linked_list_size(items) == 0) {
         linked_list_add(items, &adv_ftp);
+        linked_list_add(items, &adv_leftovers);
         linked_list_add(items, &adv_ctr_nand);
         linked_list_add(items, &adv_twl_nand);
         linked_list_add(items, &adv_twl_photo);

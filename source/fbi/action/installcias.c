@@ -8,6 +8,7 @@
 #include "../resources.h"
 #include "../task/uitask.h"
 #include "../../core/core.h"
+#include "../extras.h"
 
 typedef struct {
     linked_list* items;
@@ -203,8 +204,40 @@ static void action_install_cias_update(ui_view* view, void* data, float* progres
         ui_pop();
         info_destroy(view);
 
+        extras_install_end();
+        u32 secs = extras_install_elapsed_seconds();
+
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            prompt_display_notify("Done!", "All done! Your game is installed.\nYou can open it from the Home Menu.", COLOR_TEXT, NULL, NULL, NULL);
+            linked_list_iter iter;
+            linked_list_iterate(&installData->contents, &iter);
+            while(linked_list_iter_has_next(&iter)) {
+                list_item* it = (list_item*) linked_list_iter_next(&iter);
+                file_info* fi = it != NULL ? (file_info*) it->data : NULL;
+                extras_history_append(fi != NULL ? fi->name : "CIA", "OK");
+            }
+
+            char doneMsg[192];
+            if(extras_sound_on_done() && secs > 0) {
+                snprintf(doneMsg, sizeof(doneMsg),
+                         "All done! Your game is installed.\n"
+                         "You can open it from the Home Menu.\n\n"
+                         "Time: %lu min %lu sec",
+                         (unsigned long) (secs / 60UL), (unsigned long) (secs % 60UL));
+            } else {
+                snprintf(doneMsg, sizeof(doneMsg),
+                         "All done! Your game is installed.\n"
+                         "You can open it from the Home Menu.");
+            }
+            extras_play_done_sound();
+            prompt_display_notify("Done!", doneMsg, COLOR_TEXT, NULL, NULL, NULL);
+        } else {
+            linked_list_iter iter;
+            linked_list_iterate(&installData->contents, &iter);
+            while(linked_list_iter_has_next(&iter)) {
+                list_item* it = (list_item*) linked_list_iter_next(&iter);
+                file_info* fi = it != NULL ? (file_info*) it->data : NULL;
+                extras_history_append(fi != NULL ? fi->name : "CIA", "Failed");
+            }
         }
 
         action_install_cias_free_data(installData);
@@ -231,10 +264,46 @@ static void action_install_cias_onresponse(ui_view* view, void* data, u32 respon
     install_cias_data* installData = (install_cias_data*) data;
 
     if(response == PROMPT_YES) {
+        /* Free-space gate: sum CIA sizes. */
+        u64 need = 0;
+        linked_list_iter iter;
+        linked_list_iterate(&installData->contents, &iter);
+        while(linked_list_iter_has_next(&iter)) {
+            list_item* it = (list_item*) linked_list_iter_next(&iter);
+            file_info* fi = it != NULL ? (file_info*) it->data : NULL;
+            if(fi != NULL) {
+                need += fi->size;
+            }
+        }
+        u64 have = 0;
+        if(!extras_sd_has_space(need, &have)) {
+            char msg[256];
+            char needS[32], haveS[32];
+            extras_format_bytes(needS, sizeof(needS), need);
+            extras_format_bytes(haveS, sizeof(haveS), have);
+            snprintf(msg, sizeof(msg),
+                     "This needs about %s.\nYou only have %s free\non the SD card.\n\nFree some space and try again.",
+                     needS, haveS);
+            prompt_display_notify("Not enough space", msg, COLOR_WARNING, NULL, NULL, NULL);
+            action_install_cias_free_data(installData);
+            return;
+        }
+
+        if(!extras_battery_ok_for_long_job()) {
+            prompt_display_notify(
+                "Battery low",
+                "Battery looks low and the console\nis not charging.\n\nPlug in, then try install again.",
+                COLOR_WARNING, NULL, NULL, NULL);
+            action_install_cias_free_data(installData);
+            return;
+        }
+
+        extras_install_begin();
         Result res = task_data_op(&installData->installInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Installing CIA(s)", "Press B to cancel.", true, data, action_install_cias_update, action_install_cias_draw_top);
+            info_display("Installing…", "B = cancel", true, data, action_install_cias_update, action_install_cias_draw_top);
         } else {
+            extras_install_end();
             error_display_res(NULL, NULL, res, "Failed to initiate CIA installation.");
 
             action_install_cias_free_data(installData);
@@ -268,7 +337,7 @@ static void action_install_cias_loading_update(ui_view* view, void* data, float*
             loadingData->installData->installInfo.total = linked_list_size(&loadingData->installData->contents);
             loadingData->installData->installInfo.processed = loadingData->installData->installInfo.total;
 
-            prompt_display_yes_no("Confirmation", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_cias_draw_top, action_install_cias_onresponse);
+            prompt_display_yes_no("Install?", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_cias_draw_top, action_install_cias_onresponse);
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate CIA list.");
 

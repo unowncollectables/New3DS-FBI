@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <3ds.h>
 
@@ -34,6 +35,8 @@ typedef struct {
     bool sortBySize;
 
     bool populated;
+    bool searchApplied;
+    char search[64];
 } titles_data;
 
 typedef struct {
@@ -179,14 +182,71 @@ static void titles_options_update(ui_view* view, void* data, linked_list* items,
         titles_options_add_entry(items, "Show game card", &listData->showGameCard);
         titles_options_add_entry(items, "Show SD", &listData->showSD);
         titles_options_add_entry(items, "Show NAND", &listData->showNAND);
-        titles_options_add_entry(items, "Sort by ID", &listData->sortById);
-        titles_options_add_entry(items, "Sort by name", &listData->sortByName);
-        titles_options_add_entry(items, "Sort by size", &listData->sortBySize);
+        titles_options_add_entry(items, "Sort by ID number", &listData->sortById);
+        titles_options_add_entry(items, "Sort by name (A–Z)", &listData->sortByName);
+        titles_options_add_entry(items, "Sort by size (biggest first)", &listData->sortBySize);
     }
 }
 
 static void titles_options_open(titles_data* data) {
     list_display("Options", "A: Toggle, B: Return", data, titles_options_update, NULL);
+}
+
+
+
+static bool titles_name_match(const char* name, const char* filter) {
+    if(filter == NULL || filter[0] == '\0') {
+        return true;
+    }
+    if(name == NULL) {
+        return false;
+    }
+    size_t nlen = strlen(name);
+    size_t flen = strlen(filter);
+    if(flen > nlen) {
+        return false;
+    }
+    for(size_t i = 0; i + flen <= nlen; i++) {
+        size_t j = 0;
+        while(j < flen && tolower((unsigned char) name[i + j]) == tolower((unsigned char) filter[j])) {
+            j++;
+        }
+        if(j == flen) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void titles_apply_search(titles_data* listData, linked_list* items) {
+    if(listData->search[0] == '\0') {
+        return;
+    }
+    linked_list_iter iter;
+    linked_list_iterate(items, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        if(item == NULL) {
+            continue;
+        }
+        if(!titles_name_match(item->name, listData->search)) {
+            task_free_title(item);
+            linked_list_iter_remove(&iter);
+        }
+    }
+}
+
+static void titles_search_onresponse(ui_view* view, void* data, SwkbdButton button, const char* response) {
+    (void) view;
+    titles_data* listData = (titles_data*) data;
+    if(button == SWKBD_BUTTON_CONFIRM) {
+        if(response != NULL) {
+            string_copy(listData->search, response, sizeof(listData->search));
+        } else {
+            listData->search[0] = '\0';
+        }
+        listData->populated = false;
+    }
 }
 
 static void titles_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -220,6 +280,36 @@ static void titles_update(ui_view* view, void* data, linked_list* items, list_it
         return;
     }
 
+    if(hidKeysDown() & KEY_Y) {
+        kbd_display("Find a game (name)", listData->search, SWKBD_TYPE_NORMAL, 0, SWKBD_ANYTHING, sizeof(listData->search) - 1, listData, titles_search_onresponse);
+        return;
+    }
+
+    /* L/R = jump to letter filter */
+    if(hidKeysDown() & KEY_L) {
+        char c = listData->search[0];
+        if(c >= 'A' && c <= 'Z') c = (char) (c == 'A' ? 'Z' : c - 1);
+        else if(c >= 'a' && c <= 'z') c = (char) (toupper((unsigned char)c) == 'A' ? 'Z' : toupper((unsigned char)c) - 1);
+        else c = 'Z';
+        listData->search[0] = c;
+        listData->search[1] = '\0';
+        listData->populated = false;
+        listData->searchApplied = false;
+        return;
+    }
+    if(hidKeysDown() & KEY_R) {
+        char c = listData->search[0];
+        if(c >= 'A' && c <= 'Z') c = (char) (c == 'Z' ? 'A' : c + 1);
+        else if(c >= 'a' && c <= 'z') c = (char) (toupper((unsigned char)c) == 'Z' ? 'A' : toupper((unsigned char)c) + 1);
+        else c = 'A';
+        listData->search[0] = c;
+        listData->search[1] = '\0';
+        listData->populated = false;
+        listData->searchApplied = false;
+        return;
+    }
+
+
     if(!listData->populated || (hidKeysDown() & KEY_X)) {
         if(!listData->populateData.finished) {
             svcSignalEvent(listData->populateData.cancelEvent);
@@ -235,6 +325,12 @@ static void titles_update(ui_view* view, void* data, linked_list* items, list_it
         }
 
         listData->populated = true;
+        listData->searchApplied = false;
+    }
+
+    if(listData->populateData.finished && R_SUCCEEDED(listData->populateData.result) && !listData->searchApplied) {
+        titles_apply_search(listData, items);
+        listData->searchApplied = true;
     }
 
     if(listData->populateData.finished && R_FAILED(listData->populateData.result)) {
@@ -325,10 +421,12 @@ void titles_open() {
 
     data->showGameCard = true;
     data->showSD = true;
-    data->showNAND = true;
+    data->showNAND = false; /* everyday list; enable in Options */
     data->sortById = false;
     data->sortByName = true;
     data->sortBySize = false;
+    data->search[0] = '\0';
+    data->searchApplied = false;
 
-    list_display("Titles", "A: Select, B: Return, X: Refresh, Select: Options", data, titles_update, titles_draw_top);
+    list_display("My installed games", "A = choose, B = back, X = refresh\nY = search, L/R = letter, SELECT = sort", data, titles_update, titles_draw_top);
 }

@@ -13,6 +13,7 @@
 #include "settings.h"
 #include "selfupdate.h"
 #include "ftp.h"
+#include "extras.h"
 #include "task/uitask.h"
 
 #define CURRENT_KPROCESS (*(void**) 0xFFFF9004)
@@ -164,6 +165,7 @@ void init() {
     settings_init();
     selfupdate_init();
     ftp_init();
+    extras_init_lazy();
 }
 
 void cleanup() {
