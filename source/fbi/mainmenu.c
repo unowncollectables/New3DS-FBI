@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "selfupdate.h"
 #include "ftp.h"
+#include "task/uitask.h"
 #include "../core/core.h"
 
 /* Everyday menu (kid-friendly labels). */
@@ -102,20 +103,72 @@ static const char* advanced_tooltip(list_item* selected) {
     return "Advanced tool — be careful.";
 }
 
-static void mainmenu_about(void) {
-    prompt_display_notify(
-        "About New3DS FBI",
-        "New3DS FBI is built on FBI\n"
-        "by Steveice10.\n\n"
-        "Upstream:\n"
-        "github.com/Steveice10/FBI\n\n"
-        "This fork: New 2DS/3DS only,\n"
-        "safer installs, local port updater.\n"
+static void about_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2) {
+    (void) view;
+    (void) data;
+    const char* tip =
+        "New3DS FBI is built on FBI by Steveice10.\n\n"
+        "Thank you Steveice10 — this app would not exist without that work.";
+    float w, h;
+    screen_get_string_size_wrap(&w, &h, tip, 0.5f, 0.5f, x2 - x1 - 28.0f);
+    float y = y1 + 16.0f;
+    screen_draw_rect(x1 + 8.0f, y - 8.0f, (x2 - x1) - 16.0f, h + 16.0f, COLOR_PANEL, true);
+    screen_draw_string_wrap(tip, x1 + 14.0f, y, 0.5f, 0.5f, COLOR_TEXT, true, x2 - 14.0f);
+
+    const char* credit = "Based on FBI by Steveice10";
+    screen_get_string_size(&w, &h, credit, 0.45f, 0.45f);
+    screen_draw_string(credit, x1 + (x2 - x1 - w) / 2, y2 - h - 6.0f, 0.45f, 0.45f, COLOR_HINT, true);
+}
+
+static void about_update(ui_view* view, void* data, float* progress, char* text) {
+    (void) data;
+    (void) progress;
+    if(text != NULL) {
+        text[0] = '\0';
+    }
+    if(hidKeysDown() & (KEY_B | KEY_A | KEY_START)) {
+        ui_pop();
+        info_destroy(view);
+    }
+}
+
+static void about_draw_bottom(ui_view* view, void* data, float x1, float y1, float x2, float y2) {
+    (void) view;
+    (void) data;
+    const float pad = 10.0f;
+    float y = y1 + pad;
+    float wrap = x2 - pad;
+
+    char line[160];
+    float w, h;
+
+    snprintf(line, sizeof(line), "New3DS FBI  v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
+    screen_get_string_size(&w, &h, line, 0.6f, 0.6f);
+    screen_draw_string(line, x1 + (x2 - x1 - w) / 2, y, 0.6f, 0.6f, COLOR_TEXT, true);
+    y += h + 10.0f;
+
+    const char* body =
+        "Built on FBI by Steveice10\n"
+        "(github.com/Steveice10/FBI)\n\n"
+        "This fork is for New 2DS / New 3DS only.\n"
+        "Safer installs, local Pokemon port updater,\n"
+        "quiet self-update, and easy FTP.\n"
         "By unowncollectables.\n\n"
-        "LICENSE / copyright for FBI\n"
-        "remain Steveice10's — see\n"
-        "LICENSE.txt in the repo.",
-        COLOR_TEXT, NULL, NULL, NULL);
+        "LICENSE / copyright for FBI remain\n"
+        "Steveice10's. See LICENSE.txt.";
+    screen_get_string_size_wrap(&w, &h, body, 0.48f, 0.48f, (x2 - x1) - pad * 2);
+    screen_draw_string_wrap(body, x1 + pad, y, 0.48f, 0.48f, COLOR_TEXT, true, wrap);
+
+    const char* hint = "A / B = back";
+    screen_get_string_size(&w, &h, hint, 0.45f, 0.45f);
+    screen_draw_string(hint, x1 + (x2 - x1 - w) / 2, y2 - h - 8.0f, 0.45f, 0.45f, COLOR_HINT, true);
+}
+
+void about_open(void) {
+    ui_view* view = info_display("About / Credits", "A / B = back", false, NULL, about_update, about_draw_top);
+    if(view != NULL) {
+        view->drawBottom = about_draw_bottom;
+    }
 }
 
 static void mainmenu_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
@@ -251,7 +304,7 @@ static void mainmenu_update(ui_view* view, void* data, linked_list* items, list_
 
     if(selected != NULL && (selectedTouched || (hidKeysDown() & KEY_A))) {
         if(selected == &mm_about) {
-            mainmenu_about();
+            about_open();
             return;
         }
         if(selected == &mm_advanced) {

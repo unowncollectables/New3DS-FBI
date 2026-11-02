@@ -10,6 +10,7 @@
 #include "../screen.h"
 #include "../data/smdh.h"
 #include "../../fbi/resources.h"
+#include "../../fbi/settings.h"
 
 #define MAX_UI_VIEWS 16
 
@@ -202,64 +203,48 @@ static void ui_draw_top(ui_view* ui) {
     screen_draw_texture(wifiIcon, wifiX, wifiY, wifiWidth, wifiHeight);
 
     if(osGetTime() >= ui_free_space_last_update + 1000) {
-        char* currBuffer = ui_free_space_buffer;
+        ui_free_space_buffer[0] = '\0';
         FS_ArchiveResource resource = {0};
+        bool advanced = settings_show_advanced();
 
-        if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_SD)) && currBuffer < ui_free_space_buffer + sizeof(ui_free_space_buffer)) {
-            if(currBuffer != ui_free_space_buffer) {
-                snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), ", ");
-                currBuffer += strlen(currBuffer);
-            }
-
+        if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_SD))) {
             u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
-            snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), "SD: %.1f %s",
+            snprintf(ui_free_space_buffer, sizeof(ui_free_space_buffer), "SD: %.1f %s free",
                      ui_get_display_size(size), ui_get_display_size_units(size));
-            currBuffer += strlen(currBuffer);
         }
 
-        if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_CTR_NAND)) && currBuffer < ui_free_space_buffer + sizeof(ui_free_space_buffer)) {
-            if(currBuffer != ui_free_space_buffer) {
-                snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), ", ");
-                currBuffer += strlen(currBuffer);
+        /* Full NAND breakdown only when Advanced tools are enabled (fits the bar). */
+        if(advanced) {
+            char* currBuffer = ui_free_space_buffer + strlen(ui_free_space_buffer);
+            size_t remain = sizeof(ui_free_space_buffer) - (size_t) (currBuffer - ui_free_space_buffer);
+
+            if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_CTR_NAND)) && remain > 8) {
+                u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
+                int n = snprintf(currBuffer, remain, " · CTR %.1f %s",
+                                 ui_get_display_size(size), ui_get_display_size_units(size));
+                if(n > 0) { currBuffer += n; remain = sizeof(ui_free_space_buffer) - (size_t) (currBuffer - ui_free_space_buffer); }
             }
-
-            u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
-            snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), "CTR NAND: %.1f %s",
-                     ui_get_display_size(size), ui_get_display_size_units(size));
-            currBuffer += strlen(currBuffer);
-        }
-
-        if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_TWL_NAND)) && currBuffer < ui_free_space_buffer + sizeof(ui_free_space_buffer)) {
-            if(currBuffer != ui_free_space_buffer) {
-                snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), ", ");
-                currBuffer += strlen(currBuffer);
+            if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_TWL_NAND)) && remain > 8) {
+                u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
+                snprintf(currBuffer, remain, " · TWL %.1f %s",
+                         ui_get_display_size(size), ui_get_display_size_units(size));
             }
-
-            u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
-            snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), "TWL NAND: %.1f %s",
-                     ui_get_display_size(size), ui_get_display_size_units(size));
-            currBuffer += strlen(currBuffer);
-        }
-
-        if(R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_TWL_PHOTO)) && currBuffer < ui_free_space_buffer + sizeof(ui_free_space_buffer)) {
-            if(currBuffer != ui_free_space_buffer) {
-                snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), ", ");
-                currBuffer += strlen(currBuffer);
-            }
-
-            u64 size = (u64) resource.freeClusters * (u64) resource.clusterSize;
-            snprintf(currBuffer, sizeof(ui_free_space_buffer) - (currBuffer - ui_free_space_buffer), "TWL Photo: %.1f %s",
-                     ui_get_display_size(size), ui_get_display_size_units(size));
-            currBuffer += strlen(currBuffer);
         }
 
         ui_free_space_last_update = osGetTime();
     }
 
-    float freeSpaceHeight;
-    screen_get_string_size(NULL, &freeSpaceHeight, ui_free_space_buffer, 0.42f, 0.42f);
-
-    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 4, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, 0.42f, 0.42f, COLOR_BAR_TEXT, true);
+    float freeScale = 0.42f;
+    float freeSpaceWidth = 0.0f;
+    float freeSpaceHeight = 0.0f;
+    screen_get_string_size(&freeSpaceWidth, &freeSpaceHeight, ui_free_space_buffer, freeScale, freeScale);
+    float maxFreeW = topScreenTopBarWidth - 8.0f;
+    if(freeSpaceWidth > maxFreeW && freeSpaceWidth > 0.0f) {
+        freeScale *= maxFreeW / freeSpaceWidth;
+        if(freeScale < 0.32f) freeScale = 0.32f;
+        screen_get_string_size(&freeSpaceWidth, &freeSpaceHeight, ui_free_space_buffer, freeScale, freeScale);
+    }
+    screen_draw_string(ui_free_space_buffer, topScreenBottomBarX + 4, topScreenBottomBarY + (topScreenBottomBarHeight - freeSpaceHeight) / 2, freeScale, freeScale, COLOR_BAR_TEXT, true);
 
     screen_set_base_alpha(0xFF);
 }

@@ -20,3 +20,4 @@ void titles_open();
 void update_open();
 void settings_open();
 void ftp_open();
+void about_open();

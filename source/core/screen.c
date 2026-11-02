@@ -197,7 +197,7 @@ void screen_init() {
     font_scale = 30.0f / glyphInfo->cellHeight; // 30 is cellHeight in J machines
 
     /* Sensible defaults until textcolor.cfg loads (AARRGGBB). */
-    color_config[COLOR_TEXT] = 0xFF1A237E;
+    color_config[COLOR_TEXT] = 0xFF212121;
     color_config[11] = 0xFF1E88E5; /* accent */
     color_config[12] = 0xFFD32F2F; /* danger */
     color_config[13] = 0xFFF57F17; /* warning */

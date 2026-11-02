@@ -24,11 +24,12 @@ It installs **alongside** original FBI (different UniqueId), not over it.
 - Browse SD / NAND / TWL photo & sound, titles, tickets, pending titles, save data
 - Install CIAs from the file browser, batch install from `sdmc:/cias/`, remote/URL/QR (with allowlists)
 - **Update my ports** — local overwrite-update for known SoulSilver / Platinum builds (see below)
-- Modernized UI (citro2d progress bars, theme via `sdmc:/fbi/theme/` override)
+- Modernized UI (citro2d progress bars, theme via `sdmc:/fbi/theme/` override (delete an old `textcolor.cfg` there if dialog text looks red))
 - New 3DS hardware: 804 MHz, L2, extended memory; faster double-buffered CIA copies
 
 - **Update this app** — quiet background check for new releases (badge only, never a popup); one-tap install of `New3DS-FBI.cia` for title `0xF83FB` only
 - Kid-friendly main menu labels, top-screen tips, Advanced tools hidden until Settings enables them
+- Readable dialogs / About screen; storage bar shows SD free space (NAND details when Advanced is on)
 - **Send files from your PC (FTP)** — built-in FTP server (Advanced), SD card only, big on-screen address
 
 

@@ -1,4 +1,4 @@
-# Hardware testing — New3DS FBI v3.2.0
+# Hardware testing — New3DS FBI v3.2.1
 
 ## Builder / paths
 - Pokemon 3DS Builder deploys HOME CIAs to **`sdmc:/cias/`** (`soulsilver3ds.cia`, `platinum3ds.cia`); optional secondary `sdmc:/fbi/ports/`
@@ -6,7 +6,7 @@
 
 ## Rebrand / version
 - [ ] HOME Menu shows **New3DS FBI**; installs beside original FBI
-- [ ] Top bar shows **Ver. 3.2.0** (not 2.6.1)
+- [ ] Top bar shows **Ver. 3.2.1** (not 2.6.1)
 - [ ] SMDH description mentions **Based on FBI by Steveice10**
 - [ ] Main menu title **New3DS FBI**; Steveice10 credit on top screen; **About / Credits**
 
@@ -48,3 +48,8 @@
 - [ ] Can browse/upload/download only SD paths; cannot reach NAND
 - [ ] Optional password from Settings enforced when set
 - [ ] Keep screen awake toggle works (Settings + X on FTP screen)
+
+## UI polish (v3.2.1)
+- [ ] About is a full screen (not cramped prompt); top shows Steveice10 tip; body near-black; B/A back
+- [ ] Prompt/confirm/error: body never under buttons; Up/Down scrolls long text; button labels readable
+- [ ] Top bar storage shows "SD: X GB free" by default; NAND lines only with Advanced on; no clip off-screen

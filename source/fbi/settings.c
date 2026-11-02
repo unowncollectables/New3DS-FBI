@@ -256,16 +256,7 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
             return;
         }
         if(selected == &s_about_hint) {
-            prompt_display_notify(
-                "About New3DS FBI",
-                "New3DS FBI is built on FBI\n"
-                "by Steveice10.\n\n"
-                "Upstream:\n"
-                "github.com/Steveice10/FBI\n\n"
-                "This fork: New 2DS/3DS only.\n"
-                "By unowncollectables.\n\n"
-                "LICENSE stays Steveice10's.",
-                COLOR_TEXT, NULL, NULL, NULL);
+            about_open();
             return;
         }
     }
