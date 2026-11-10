@@ -7,6 +7,7 @@
 #include "resources.h"
 #include "../core/core.h"
 
+static bool g_sd_bg_override = false;
 static bool g_sd_color_override = false;
 static bool g_dark = false;
 static u32 g_accent = RESOURCES_ACCENT_BLUE;
@@ -196,7 +197,8 @@ bool resources_is_dark(void) {
 
 bool resources_dark_fill_enabled(void) {
     /* Dark fill only when dark mode is on and the user has not dropped a custom BG on SD. */
-    return g_dark && !resources_sd_file_exists("bottom_screen_bg.png") && !resources_sd_file_exists("top_screen_bg.png");
+    /* Checked once in resources_load(), not every frame (avoids SD access per frame). */
+    return g_dark && !g_sd_bg_override;
 }
 
 void resources_set_dark(bool dark) {
@@ -209,6 +211,7 @@ void resources_set_dark(bool dark) {
 
 void resources_load() {
     g_sd_color_override = resources_sd_file_exists("textcolor.cfg");
+    g_sd_bg_override = resources_sd_file_exists("bottom_screen_bg.png") || resources_sd_file_exists("top_screen_bg.png");
 
     if(g_sd_color_override) {
         FILE* fd = resources_open_file("textcolor.cfg");

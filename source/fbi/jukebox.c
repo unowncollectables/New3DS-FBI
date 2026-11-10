@@ -57,6 +57,10 @@ typedef struct {
     int sampleRate;
     ndspWaveBuf waveBuf[JB_WAVEBUFS];
     s16* audioBuffer;
+    s16 pend[MINIMP3_MAX_SAMPLES_PER_FRAME]; /* decoded samples that did not fit last buffer */
+    int pendFrames;
+    int pendPos;
+    int pendCh;
     size_t waveBufSamples; /* frames per buffer */
     size_t waveBufBytes;
 } jukebox_data;
@@ -126,6 +130,8 @@ static bool jb_open_song(jukebox_data* d, int index) {
     }
     jb_skip_id3(d);
     mp3dec_init(&d->decoder);
+    d->pendFrames = 0;
+    d->pendPos = 0;
     d->mp3off = 0;
     d->mp3len = 0;
     d->channels = 0;
@@ -193,6 +199,8 @@ static bool jb_probe_format(jukebox_data* d) {
     fseek(d->file, 0, SEEK_SET);
     jb_skip_id3(d);
     mp3dec_init(&d->decoder);
+    d->pendFrames = 0;
+    d->pendPos = 0;
     d->mp3off = 0;
     d->mp3len = 0;
     if(saved) free(saved);
@@ -257,6 +265,21 @@ static bool jb_fill_wavebuf(jukebox_data* d, ndspWaveBuf* wb) {
     s16* out = wb->data_pcm16;
     int ch = d->channels > 0 ? d->channels : 2;
 
+    /* First use samples left over from the previous MP3 frame. */
+    while(d->pendPos < d->pendFrames && framesFilled < framesNeeded) {
+        int i = d->pendPos++;
+        if(ch == 1) {
+            out[framesFilled] = d->pendCh >= 2 ? (s16) (((int) d->pend[i * 2] + (int) d->pend[i * 2 + 1]) / 2) : d->pend[i];
+        } else if(d->pendCh >= 2) {
+            out[framesFilled * 2] = d->pend[i * 2];
+            out[framesFilled * 2 + 1] = d->pend[i * 2 + 1];
+        } else {
+            out[framesFilled * 2] = d->pend[i];
+            out[framesFilled * 2 + 1] = d->pend[i];
+        }
+        framesFilled++;
+    }
+
     while(framesFilled < framesNeeded) {
         if(!jb_refill_mp3(d)) {
             break;
@@ -304,7 +327,8 @@ static bool jb_fill_wavebuf(jukebox_data* d, ndspWaveBuf* wb) {
         }
 
         int srcCh = info.channels;
-        for(int i = 0; i < samples && framesFilled < framesNeeded; i++) {
+        int i = 0;
+        for(; i < samples && framesFilled < framesNeeded; i++) {
             if(ch == 1) {
                 if(srcCh >= 2) {
                     out[framesFilled] = (s16) (((int) pcm[i * 2] + (int) pcm[i * 2 + 1]) / 2);
@@ -321,6 +345,16 @@ static bool jb_fill_wavebuf(jukebox_data* d, ndspWaveBuf* wb) {
                 }
             }
             framesFilled++;
+        }
+
+        if(i < samples) {
+            /* Keep the rest of this frame for the next buffer (no clicks). */
+            int rest = samples - i;
+            int perFrame = srcCh >= 2 ? 2 : 1;
+            memcpy(d->pend, pcm + i * perFrame, (size_t) rest * perFrame * sizeof(s16));
+            d->pendFrames = rest;
+            d->pendPos = 0;
+            d->pendCh = srcCh;
         }
     }
 
@@ -428,6 +462,16 @@ static void jb_cleanup_audio(jukebox_data* d) {
     }
 }
 
+/* The open Jukebox screen, so app exit can stop audio even if B was never pressed. */
+static jukebox_data* g_jb_active = NULL;
+
+void jukebox_shutdown(void) {
+    if(g_jb_active != NULL) {
+        jb_cleanup_audio(g_jb_active);
+        g_jb_active = NULL;
+    }
+}
+
 static void jb_change_song(jukebox_data* d, int dir) {
     if(d->songCount <= 0 || !d->ndspOk) return;
     LightLock_Lock(&d->lock);
@@ -528,6 +572,7 @@ static void jb_update(ui_view* view, void* data, float* progress, char* text) {
     u32 down = hidKeysDown();
     if(down & KEY_B) {
         jb_cleanup_audio(d);
+        if(g_jb_active == d) g_jb_active = NULL;
         ui_pop();
         info_destroy(view);
         free(d);
@@ -611,5 +656,6 @@ void jukebox_open(void) {
         free(d);
         return;
     }
+    g_jb_active = d;
     view->drawBottom = jb_draw_bottom;
 }

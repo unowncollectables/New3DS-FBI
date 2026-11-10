@@ -186,48 +186,56 @@ static Result save_copy_dir_recursive(FS_Archive srcArch, const char* srcDir, FS
     return res;
 }
 
+/* Delete everything inside `dir` (and `dir` itself unless it is "/").
+ * Re-opens the directory after every delete so entries are never skipped. */
 static Result save_delete_dir_recursive(FS_Archive arch, const char* dir) {
     Result res = 0;
-    FS_Path* dirPath = fs_make_path_utf8(dir);
-    if(dirPath == NULL) {
-        return R_APP_OUT_OF_MEMORY;
-    }
 
-    Handle dirHandle = 0;
-    if(R_FAILED(res = FSUSER_OpenDirectory(&dirHandle, arch, *dirPath))) {
+    for(u32 guard = 0; guard < 4096 && R_SUCCEEDED(res); guard++) {
+        FS_Path* dirPath = fs_make_path_utf8(dir);
+        if(dirPath == NULL) {
+            return R_APP_OUT_OF_MEMORY;
+        }
+
+        Handle dirHandle = 0;
+        res = FSUSER_OpenDirectory(&dirHandle, arch, *dirPath);
         fs_free_path_utf8(dirPath);
-        return res;
-    }
+        if(R_FAILED(res)) {
+            return res;
+        }
 
-    while(R_SUCCEEDED(res)) {
         u32 entriesRead = 0;
         FS_DirectoryEntry entry;
         res = FSDIR_Read(dirHandle, &entriesRead, 1, &entry);
+        FSDIR_Close(dirHandle);
         if(R_FAILED(res) || entriesRead == 0) {
             if(entriesRead == 0) res = 0;
             break;
         }
+
         char name[FILE_NAME_MAX];
         utf16_to_utf8((uint8_t*) name, entry.name, FILE_NAME_MAX - 1);
-        if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+        name[FILE_NAME_MAX - 1] = '\0';
+        if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0 || name[0] == '\0') {
+            break;
+        }
 
         char child[SAVE_PATH_MAX];
         if(strcmp(dir, "/") == 0) snprintf(child, sizeof(child), "/%s", name);
         else snprintf(child, sizeof(child), "%s/%s", dir, name);
 
-        if(entry.attributes & FS_ATTRIBUTE_DIRECTORY) {
-            if(R_FAILED(res = save_delete_dir_recursive(arch, child))) break;
-        } else {
-            FS_Path* fp = fs_make_path_utf8(child);
-            if(fp == NULL) { res = R_APP_OUT_OF_MEMORY; break; }
-            res = FSUSER_DeleteFile(arch, *fp);
-            fs_free_path_utf8(fp);
-            if(R_FAILED(res)) break;
+        FS_Path* fp = fs_make_path_utf8(child);
+        if(fp == NULL) {
+            return R_APP_OUT_OF_MEMORY;
         }
+        if(entry.attributes & FS_ATTRIBUTE_DIRECTORY) {
+            res = FSUSER_DeleteDirectoryRecursively(arch, *fp);
+        } else {
+            res = FSUSER_DeleteFile(arch, *fp);
+        }
+        fs_free_path_utf8(fp);
     }
 
-    FSDIR_Close(dirHandle);
-    fs_free_path_utf8(dirPath);
     if(R_SUCCEEDED(res) && strcmp(dir, "/") != 0) {
         FS_Path* dp = fs_make_path_utf8(dir);
         if(dp != NULL) {
@@ -299,8 +307,11 @@ static Result save_restore_from_folder(u64 titleId, FS_MediaType media, const ch
     }
 
     /* Wipe current save contents (not the archive itself), then copy backup in. */
-    save_delete_dir_recursive(saveArch, "/");
-    res = save_copy_dir_recursive(sdmc, backupFolder, saveArch, "/");
+    /* Only commit when the wipe and the whole copy worked. */
+    res = save_delete_dir_recursive(saveArch, "/");
+    if(R_SUCCEEDED(res)) {
+        res = save_copy_dir_recursive(sdmc, backupFolder, saveArch, "/");
+    }
     if(R_SUCCEEDED(res)) {
         res = FSUSER_ControlArchive(saveArch, ARCHIVE_ACTION_COMMIT_SAVE_DATA, NULL, 0, NULL, 0);
     }
@@ -368,6 +379,32 @@ static void save_draw_top(ui_view* view, void* data, float x1, float y1, float x
     screen_draw_string_wrap(tip, x1 + 12.0f, y1 + 20.0f, 0.48f, 0.48f, COLOR_TEXT, true, x2 - 12.0f);
 }
 
+/* "Save options" list: data is the game's list item (its data is a title_info). */
+static void save_options_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
+    (void) selected;
+    list_item* titleItem = (list_item*) data;
+    if(titleItem != NULL && titleItem->data != NULL) {
+        task_draw_title_info(view, titleItem->data, x1, y1, x2, y2);
+    }
+}
+
+/* "Pick a backup" list: row data is a folder path string, not a title. */
+static void save_picker_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
+    (void) view;
+    save_title_ctx* title = (save_title_ctx*) data;
+    char tip[400];
+    snprintf(tip, sizeof(tip),
+             "Backups for:\n%s\n\n"
+             "Pick one and press A. You will be asked first.\n"
+             "Your current save is backed up before restoring.\n\n"
+             "%s",
+             title != NULL ? title->titleName : "",
+             (selected != NULL && selected->data != NULL) ? (const char*) selected->data : "");
+    float w, h;
+    screen_get_string_size_wrap(&w, &h, tip, 0.48f, 0.48f, x2 - x1 - 24.0f);
+    screen_draw_string_wrap(tip, x1 + 12.0f, y1 + 16.0f, 0.48f, 0.48f, COLOR_TEXT, true, x2 - 12.0f);
+}
+
 static void save_backup_progress(ui_view* view, void* data, float* progress, char* text) {
     save_title_ctx* ctx = (save_title_ctx*) data;
     (void) progress;
@@ -433,8 +470,21 @@ static void save_restore_run(ui_view* view, void* data, float* progress, char* t
     char safety[SAVE_PATH_MAX];
     Result res = save_backup_title(ctx->title.titleId, ctx->title.mediaType, ctx->title.titleName, safety, sizeof(safety));
     if(R_FAILED(res)) {
-        /* If no current save, still allow restore */
         safety[0] = '\0';
+
+        /* Only carry on without a safety copy if there is truly no current save.
+         * If the save exists but could not be copied (SD full, etc.), stop here
+         * so nothing is lost. */
+        FS_Archive probe = 0;
+        if(R_SUCCEEDED(save_open_title_archive(&probe, ctx->title.mediaType, ctx->title.titleId))) {
+            FSUSER_CloseArchive(probe);
+
+            ui_pop();
+            info_destroy(view);
+            error_display_res(NULL, NULL, res, "Could not make a safety backup first.\nNothing was changed.");
+            free(ctx);
+            return;
+        }
     }
 
     res = save_restore_from_folder(ctx->title.titleId, ctx->title.mediaType, ctx->backupRel);
@@ -572,7 +622,7 @@ static void save_open_restore_picker(list_item* selected) {
     } else {
         string_copy(ctx->titleName, selected->name, sizeof(ctx->titleName));
     }
-    list_display("Pick a backup", "A = restore (asks first), B = back", ctx, save_pick_backup_update, save_draw_top);
+    list_display("Pick a backup", "A = restore (asks first), B = back", ctx, save_pick_backup_update, save_picker_draw_top);
 }
 
 static void save_action_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
@@ -633,7 +683,7 @@ static void save_update(ui_view* view, void* data, linked_list* items, list_item
     }
 
     if(selected != NULL && selected->data != NULL && (selectedTouched || (hidKeysDown() & KEY_A))) {
-        list_display("Save options", "A = choose, B = back", selected, save_action_update, save_draw_top);
+        list_display("Save options", "A = choose, B = back", selected, save_action_update, save_options_draw_top);
         return;
     }
 }

@@ -145,25 +145,38 @@ static void ui_draw_top(ui_view* ui) {
     float topScreenTopBarY = 0;
     screen_draw_rect(0, topScreenTopBarY, TOP_SCREEN_WIDTH, topScreenTopBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_TOP_SCREEN_TOP_BAR_SHADOW, topScreenTopBarX, topScreenTopBarY + topScreenTopBarHeight, topScreenTopBarShadowWidth, topScreenTopBarShadowHeight);
+    /* Thin accent edge under the header. */
+    screen_draw_rect(0, topScreenTopBarY + topScreenTopBarHeight - 2, TOP_SCREEN_WIDTH, 2, COLOR_ACCENT, true);
 
     float topScreenBottomBarX = (TOP_SCREEN_WIDTH - topScreenBottomBarWidth) / 2;
     float topScreenBottomBarY = TOP_SCREEN_HEIGHT - topScreenBottomBarHeight;
     screen_draw_rect(0, topScreenBottomBarY, TOP_SCREEN_WIDTH, topScreenBottomBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_TOP_SCREEN_BOTTOM_BAR_SHADOW, topScreenBottomBarX, topScreenBottomBarY - topScreenBottomBarShadowHeight, topScreenBottomBarShadowWidth, topScreenBottomBarShadowHeight);
+    /* Thin accent edge above the footer. */
+    screen_draw_rect(0, topScreenBottomBarY, TOP_SCREEN_WIDTH, 2, COLOR_ACCENT, true);
 
     screen_set_base_alpha(ui_fade_alpha);
 
     char verText[64];
-    snprintf(verText, 64, "Ver. %d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
+    snprintf(verText, 64, "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_MICRO);
 
     float verWidth;
     float verHeight;
     screen_get_string_size(&verWidth, &verHeight, verText, 0.5f, 0.5f);
     screen_draw_string(verText, topScreenTopBarX + 4, topScreenTopBarY + (topScreenTopBarHeight - verHeight) / 2, 0.5f, 0.5f, COLOR_BAR_TEXT, true);
 
+    /* Friendly clock, e.g. "Tue Nov 10  4:31 PM". */
     time_t t = time(NULL);
-    char* timeText = ctime(&t);
-    timeText[strlen(timeText) - 1] = '\0';
+    char timeText[40];
+    timeText[0] = '\0';
+    struct tm* tmNow = gmtime(&t);
+    if(tmNow != NULL) {
+        int hour12 = tmNow->tm_hour % 12;
+        if(hour12 == 0) hour12 = 12;
+        char dayPart[24];
+        strftime(dayPart, sizeof(dayPart), "%a %b %d", tmNow);
+        snprintf(timeText, sizeof(timeText), "%s  %d:%02d %s", dayPart, hour12, tmNow->tm_min, tmNow->tm_hour < 12 ? "AM" : "PM");
+    }
 
     float timeTextWidth;
     float timeTextHeight;
@@ -292,11 +305,13 @@ static void ui_draw_bottom(ui_view* ui) {
     float bottomScreenTopBarY = 0;
     screen_draw_rect(0, bottomScreenTopBarY, BOTTOM_SCREEN_WIDTH, bottomScreenTopBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_BOTTOM_SCREEN_TOP_BAR_SHADOW, bottomScreenTopBarX, bottomScreenTopBarY + bottomScreenTopBarHeight, bottomScreenTopBarShadowWidth, bottomScreenTopBarShadowHeight);
+    screen_draw_rect(0, bottomScreenTopBarY + bottomScreenTopBarHeight - 2, BOTTOM_SCREEN_WIDTH, 2, COLOR_ACCENT, true);
 
     float bottomScreenBottomBarX = (BOTTOM_SCREEN_WIDTH - bottomScreenBottomBarWidth) / 2;
     float bottomScreenBottomBarY = BOTTOM_SCREEN_HEIGHT - bottomScreenBottomBarHeight;
     screen_draw_rect(0, bottomScreenBottomBarY, BOTTOM_SCREEN_WIDTH, bottomScreenBottomBarHeight, COLOR_BAR, true);
     screen_draw_texture(TEXTURE_BOTTOM_SCREEN_BOTTOM_BAR_SHADOW, bottomScreenBottomBarX, bottomScreenBottomBarY - bottomScreenBottomBarShadowHeight, bottomScreenBottomBarShadowWidth, bottomScreenBottomBarShadowHeight);
+    screen_draw_rect(0, bottomScreenBottomBarY, BOTTOM_SCREEN_WIDTH, 2, COLOR_ACCENT, true);
 
     screen_set_base_alpha(ui_fade_alpha);
 

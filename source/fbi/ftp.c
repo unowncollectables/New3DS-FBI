@@ -649,7 +649,25 @@ static void ftp_thread(void* arg) {
     ftp_close_fd(&g_ftp.listenFd);
     g_ftp.running = false;
     ftp_set_state(FTP_STATE_STOPPED, "Stopped");
-    g_ftp.thread = NULL;
+}
+
+/* Wait for the server thread to finish and release it. */
+static bool ftp_join_thread(u64 timeoutNs) {
+    if(g_ftp.thread == NULL) {
+        return true;
+    }
+    if(R_SUCCEEDED(threadJoin(g_ftp.thread, timeoutNs))) {
+        threadFree(g_ftp.thread);
+        g_ftp.thread = NULL;
+        return true;
+    }
+    return false;
+}
+
+static void ftp_shutdown_fd(int fd) {
+    if(fd >= 0) {
+        shutdown(fd, SHUT_RDWR);
+    }
 }
 
 void ftp_init(void) {
@@ -665,13 +683,21 @@ void ftp_init(void) {
 }
 
 void ftp_exit(void) {
+    if(!g_ftp_inited) return;
     ftp_stop();
+    /* Never shut the network down under a live server thread. */
+    ftp_join_thread(U64_MAX);
     g_ftp_inited = false;
 }
 
 bool ftp_start(void) {
     if(!g_ftp_inited) ftp_init();
     if(g_ftp.running) return true;
+    /* A previous server thread that already ended still needs freeing. */
+    if(!ftp_join_thread(1000000000ULL)) {
+        ftp_set_state(FTP_STATE_ERROR, "Still stopping, try again");
+        return false;
+    }
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd < 0) {
@@ -699,7 +725,7 @@ bool ftp_start(void) {
     g_ftp.stopReq = false;
     g_ftp.running = true;
     string_copy(g_ftp.cwd, "/", sizeof(g_ftp.cwd));
-    g_ftp.thread = threadCreate(ftp_thread, NULL, 0x10000, 0x18, 1, true);
+    g_ftp.thread = threadCreate(ftp_thread, NULL, 0x10000, 0x18, 1, false);
     if(g_ftp.thread == NULL) {
         ftp_close_fd(&g_ftp.listenFd);
         g_ftp.running = false;
@@ -719,15 +745,22 @@ void ftp_stop(void) {
         return;
     }
     g_ftp.stopReq = true;
-    /* Wake accept/select */
-    ftp_close_fd(&g_ftp.listenFd);
-    ftp_close_fd(&g_ftp.clientFd);
-    ftp_close_data();
-    /* Detached thread exits on its own; wait briefly */
-    for(int i = 0; i < 50 && g_ftp.running; i++) {
-        svcSleepThread(20 * 1000 * 1000ULL);
+    /* Wake any blocking recv/send; the server thread closes its own sockets. */
+    ftp_shutdown_fd(g_ftp.clientFd);
+    ftp_shutdown_fd(g_ftp.dataFd);
+    if(!ftp_join_thread(2000000000ULL)) {
+        /* Still stuck: force-close the sockets, then wait again. */
+        ftp_close_data();
+        ftp_close_fd(&g_ftp.clientFd);
+        ftp_close_fd(&g_ftp.listenFd);
+        ftp_join_thread(3000000000ULL);
     }
-    g_ftp.running = false;
+    if(g_ftp.thread == NULL) {
+        ftp_close_data();
+        ftp_close_fd(&g_ftp.clientFd);
+        ftp_close_fd(&g_ftp.listenFd);
+        g_ftp.running = false;
+    }
     ftp_set_state(FTP_STATE_STOPPED, "Stopped");
 }
 

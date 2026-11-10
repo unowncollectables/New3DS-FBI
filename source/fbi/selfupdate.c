@@ -36,6 +36,7 @@ static selfupdate_state g_su;
 static LightLock g_su_lock;
 static bool g_su_inited = false;
 static Thread g_su_thread = NULL;
+static volatile bool g_su_quit = false;
 
 static void selfupdate_ensure_dir(void) {
     FS_Archive sdmc = 0;
@@ -194,9 +195,11 @@ static void selfupdate_check_thread(void* arg) {
     (void) arg;
 
     json_t* json = NULL;
-    /* Silent on any failure (offline, timeout, bad JSON). */
-    if(R_SUCCEEDED(http_download_json(SELFUPDATE_API_URL, &json, 48 * 1024))) {
-        selfupdate_apply_json(json);
+    /* Silent on any failure (offline, timeout, bad JSON, app closing). */
+    if(!g_su_quit && R_SUCCEEDED(http_download_json(SELFUPDATE_API_URL, &json, 48 * 1024))) {
+        if(!g_su_quit) {
+            selfupdate_apply_json(json);
+        }
         json_decref(json);
     }
 
@@ -204,8 +207,20 @@ static void selfupdate_check_thread(void* arg) {
     g_su.checking = false;
     g_su.checked = true;
     LightLock_Unlock(&g_su_lock);
+}
 
-    g_su_thread = NULL;
+/* Join a finished (or finishing) check thread. Never leave a thread running
+ * while the network services are shut down; that corrupts the network
+ * sysmodule state and crashes the console on a later launch/exit. */
+static void selfupdate_reap_thread(u64 timeoutNs) {
+    if(g_su_thread == NULL) {
+        return;
+    }
+
+    if(R_SUCCEEDED(threadJoin(g_su_thread, timeoutNs))) {
+        threadFree(g_su_thread);
+        g_su_thread = NULL;
+    }
 }
 
 void selfupdate_init(void) {
@@ -215,6 +230,8 @@ void selfupdate_init(void) {
 
     memset(&g_su, 0, sizeof(g_su));
     LightLock_Init(&g_su_lock);
+    g_su_quit = false;
+    g_su_thread = NULL;
     selfupdate_load_cfg();
     g_su_inited = true;
 }
@@ -224,17 +241,28 @@ void selfupdate_exit(void) {
         return;
     }
 
-    /* Detached threads exit on their own; nothing to join safely here. */
+    g_su_quit = true;
+
+    if(g_su_thread != NULL) {
+        /* Ask any in-flight download to stop, then wait for the thread. */
+        http_abort_all();
+        selfupdate_reap_thread(U64_MAX);
+    }
+
     g_su_inited = false;
 }
 
-void selfupdate_start_background_check(void) {
+static void selfupdate_start_check(bool force) {
     if(!g_su_inited) {
         selfupdate_init();
     }
 
+    if(g_su_quit) {
+        return;
+    }
+
     LightLock_Lock(&g_su_lock);
-    bool enabled = g_su.checkEnabled;
+    bool enabled = g_su.checkEnabled || force;
     bool busy = g_su.checking;
     if(enabled && !busy) {
         g_su.checking = true;
@@ -245,12 +273,19 @@ void selfupdate_start_background_check(void) {
         return;
     }
 
-    g_su_thread = threadCreate(selfupdate_check_thread, NULL, 0x10000, 0x1A, 1, true);
+    /* Previous check is done (checking == false); free its thread first. */
+    selfupdate_reap_thread(U64_MAX);
+
+    g_su_thread = threadCreate(selfupdate_check_thread, NULL, 0x10000, 0x1A, 1, false);
     if(g_su_thread == NULL) {
         LightLock_Lock(&g_su_lock);
         g_su.checking = false;
         LightLock_Unlock(&g_su_lock);
     }
+}
+
+void selfupdate_start_background_check(void) {
+    selfupdate_start_check(false);
 }
 
 bool selfupdate_is_available(void) {
@@ -448,7 +483,7 @@ static void selfupdate_update(ui_view* view, void* data, linked_list* items, lis
             LightLock_Lock(&g_su_lock);
             g_su.checked = false;
             LightLock_Unlock(&g_su_lock);
-            selfupdate_start_background_check();
+            selfupdate_start_check(true);
             prompt_display_notify("Checking", "Looking for updates\nin the background…", COLOR_TEXT, NULL, NULL, NULL);
             return;
         }

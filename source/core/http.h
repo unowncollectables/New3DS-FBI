@@ -1,5 +1,10 @@
 #pragma once
 
+void http_init(void);
+void http_abort_all(void);
+bool http_is_aborting(void);
+
+
 Result http_download_callback(const char* url, u32 bufferSize, void* userData, Result (*callback)(void* userData, void* buffer, size_t size),
                                                                                Result (*checkRunning)(void* userData),
                                                                                Result (*progress)(void* userData, u64 total, u64 curr));

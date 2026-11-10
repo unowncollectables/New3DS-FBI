@@ -31,6 +31,68 @@ struct httpc_context_s {
 
 typedef struct httpc_context_s* httpc_context;
 
+/* ---- Abort support: lets app exit stop in-flight downloads on other threads. ---- */
+#define HTTP_MAX_LIVE_CONTEXTS 8
+static volatile bool http_aborting = false;
+static bool http_lock_inited = false;
+static LightLock http_live_lock;
+static httpcContext* http_live[HTTP_MAX_LIVE_CONTEXTS];
+
+void http_init(void) {
+    if(!http_lock_inited) {
+        LightLock_Init(&http_live_lock);
+        http_lock_inited = true;
+    }
+    http_aborting = false;
+    memset(http_live, 0, sizeof(http_live));
+}
+
+bool http_is_aborting(void) {
+    return http_aborting;
+}
+
+void http_abort_all(void) {
+    http_aborting = true;
+    if(!http_lock_inited) {
+        return;
+    }
+    LightLock_Lock(&http_live_lock);
+    for(u32 i = 0; i < HTTP_MAX_LIVE_CONTEXTS; i++) {
+        if(http_live[i] != NULL) {
+            httpcCancelConnection(http_live[i]);
+        }
+    }
+    LightLock_Unlock(&http_live_lock);
+}
+
+static void http_live_add(httpcContext* c) {
+    if(!http_lock_inited) return;
+    LightLock_Lock(&http_live_lock);
+    for(u32 i = 0; i < HTTP_MAX_LIVE_CONTEXTS; i++) {
+        if(http_live[i] == NULL) {
+            http_live[i] = c;
+            break;
+        }
+    }
+    LightLock_Unlock(&http_live_lock);
+}
+
+static void http_live_remove(httpcContext* c) {
+    if(!http_lock_inited) return;
+    LightLock_Lock(&http_live_lock);
+    for(u32 i = 0; i < HTTP_MAX_LIVE_CONTEXTS; i++) {
+        if(http_live[i] == c) {
+            http_live[i] = NULL;
+        }
+    }
+    LightLock_Unlock(&http_live_lock);
+}
+
+static Result http_close_live(httpcContext* c) {
+    http_live_remove(c);
+    return httpcCloseContext(c);
+}
+
 static void httpc_resolve_redirect(char* oldUrl, const char* redirectTo, size_t size) {
     if(size > 0) {
         if(redirectTo[0] == '/') {
@@ -75,7 +137,14 @@ static Result httpc_open(httpc_context* context, const char* url, bool userAgent
         bool resolved = false;
         u32 redirectCount = 0;
         while(R_SUCCEEDED(res) && !resolved && redirectCount < HTTP_MAX_REDIRECTS) {
+            if(http_aborting) {
+                res = R_APP_CANCELLED;
+                break;
+            }
+
             if(R_SUCCEEDED(res = httpcOpenContext(&ctx->httpc, HTTPC_METHOD_GET, currUrl, 1))) {
+                http_live_add(&ctx->httpc);
+
                 u32 response = 0;
                 if(R_SUCCEEDED(res = httpcSetSSLOpt(&ctx->httpc, SSLCOPT_DisableVerify))
                    && (!userAgent || R_SUCCEEDED(res = httpcAddRequestHeaderField(&ctx->httpc, "User-Agent", HTTP_USER_AGENT)))
@@ -89,7 +158,7 @@ static Result httpc_open(httpc_context* context, const char* url, bool userAgent
                         char redirectTo[1024];
                         memset(redirectTo, '\0', sizeof(redirectTo));
                         if(R_SUCCEEDED(res = httpcGetResponseHeader(&ctx->httpc, "Location", redirectTo, sizeof(redirectTo)))) {
-                            httpcCloseContext(&ctx->httpc);
+                            http_close_live(&ctx->httpc);
 
                             httpc_resolve_redirect(currUrl, redirectTo, sizeof(currUrl));
                         }
@@ -120,7 +189,7 @@ static Result httpc_open(httpc_context* context, const char* url, bool userAgent
                 }
 
                 if(R_FAILED(res)) {
-                    httpcCloseContext(&ctx->httpc);
+                    http_close_live(&ctx->httpc);
                 }
             }
         }
@@ -152,7 +221,7 @@ static Result httpc_close(httpc_context context) {
         inflateEnd(&context->inflate);
     }
 
-    Result res = httpcCloseContext(&context->httpc);
+    Result res = http_close_live(&context->httpc);
     free(context);
     return res;
 }
@@ -179,7 +248,7 @@ static Result httpc_read(httpc_context context, u32* bytesRead, void* buffer, u3
         u32 outPos = 0;
         if(context->compressed) {
             u32 lastPos = context->bufferSize;
-            while(res == HTTPC_RESULTCODE_DOWNLOADPENDING && outPos < size) {
+            while(res == HTTPC_RESULTCODE_DOWNLOADPENDING && outPos < size && !http_aborting) {
                 if((context->bufferSize > 0
                     || R_SUCCEEDED(res = httpcReceiveDataTimeout(&context->httpc, &context->buffer[context->bufferSize], sizeof(context->buffer) - context->bufferSize, HTTP_TIMEOUT_NS))
                     || res == HTTPC_RESULTCODE_DOWNLOADPENDING)) {
@@ -205,7 +274,7 @@ static Result httpc_read(httpc_context context, u32* bytesRead, void* buffer, u3
                 }
             }
         } else {
-            while(res == HTTPC_RESULTCODE_DOWNLOADPENDING && outPos < size) {
+            while(res == HTTPC_RESULTCODE_DOWNLOADPENDING && outPos < size && !http_aborting) {
                 if(R_SUCCEEDED(res = httpcReceiveDataTimeout(&context->httpc, &((u8*) buffer)[outPos], size - outPos, HTTP_TIMEOUT_NS)) || res == HTTPC_RESULTCODE_DOWNLOADPENDING) {
                     Result posRes = 0;
                     u32 currPos = 0;
@@ -218,7 +287,9 @@ static Result httpc_read(httpc_context context, u32* bytesRead, void* buffer, u3
             }
         }
 
-        if(res == HTTPC_RESULTCODE_DOWNLOADPENDING) {
+        if(http_aborting) {
+            res = R_APP_CANCELLED;
+        } else if(res == HTTPC_RESULTCODE_DOWNLOADPENDING) {
             res = 0;
         }
 
@@ -272,6 +343,11 @@ static size_t http_curl_write_callback(char* ptr, size_t size, size_t nmemb, voi
 int http_curl_xfer_info_callback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
     http_curl_data* curlData = (http_curl_data*) clientp;
 
+    if(http_aborting) {
+        curlData->res = R_APP_CANCELLED;
+        return 1;
+    }
+
     if(R_FAILED(curlData->res) || (curlData->checkRunning != NULL && R_FAILED(curlData->res = curlData->checkRunning(curlData->userData)))) {
         return 1;
     }
@@ -301,6 +377,7 @@ Result http_download_callback(const char* url, u32 bufferSize, void* userData, R
                 u32 total = 0;
                 u32 currSize = 0;
                 while(total < dlSize
+                      && (!http_aborting || ((res = R_APP_CANCELLED), false))
                       && (checkRunning == NULL || R_SUCCEEDED(res = checkRunning(userData)))
                       && R_SUCCEEDED(res = httpc_read(context, &currSize, buf, bufferSize))
                       && R_SUCCEEDED(res = callback(userData, buf, currSize))) {
@@ -316,7 +393,7 @@ Result http_download_callback(const char* url, u32 bufferSize, void* userData, R
                     res = closeRes;
                 }
             }
-        } else if(res == R_HTTP_TLS_VERIFY_FAILED) {
+        } else if(res == R_HTTP_TLS_VERIFY_FAILED && !http_aborting) {
             res = 0;
 
             CURL* curl = curl_easy_init();
@@ -416,10 +493,16 @@ Result http_download_json(const char* url, json_t** json, size_t maxSize) {
 
     Result res = 0;
 
+    if(maxSize < 2) {
+        return R_APP_INVALID_ARGUMENT;
+    }
+
     char* text = (char*) calloc(sizeof(char), maxSize);
     if(text != NULL) {
         u32 textSize = 0;
-        if(R_SUCCEEDED(res = http_download_buffer(url, &textSize, text, maxSize))) {
+        /* Leave room for the terminating NUL so json_loads never reads past the buffer. */
+        if(R_SUCCEEDED(res = http_download_buffer(url, &textSize, text, maxSize - 1))) {
+            text[textSize < maxSize ? textSize : maxSize - 1] = '\0';
             json_error_t error;
             json_t* parsed = json_loads(text, 0, &error);
             if(parsed != NULL) {

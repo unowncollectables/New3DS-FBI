@@ -14,6 +14,9 @@
 #include "selfupdate.h"
 #include "ftp.h"
 #include "extras.h"
+#include "jukebox.h"
+#include <jansson.h>
+#include "../core/http.h"
 #include "task/uitask.h"
 
 #define CURRENT_KPROCESS (*(void**) 0xFFFF9004)
@@ -70,21 +73,42 @@ static void (*exit_funcs[16])()= {NULL};
 static u32 exit_func_count = 0;
 
 static void* soc_buffer = NULL;
+static bool soc_inited = false;
+
+static void soc_exit_wrapper() {
+    /* Only hand the buffer back to the heap once the network module has
+     * really let go of it. Freeing it while still shared is what can take
+     * the console down on a later launch. */
+    if(soc_inited && R_SUCCEEDED(socExit())) {
+        soc_inited = false;
+        if(soc_buffer != NULL) {
+            free(soc_buffer);
+            soc_buffer = NULL;
+        }
+    }
+}
 
 void cleanup_services() {
-    for(u32 i = 0; i < exit_func_count; i++) {
-        if(exit_funcs[i] != NULL) {
-            exit_funcs[i]();
-            exit_funcs[i] = NULL;
+    /* Shut services down in the reverse order they were started. */
+    while(exit_func_count > 0) {
+        exit_func_count--;
+        if(exit_funcs[exit_func_count] != NULL) {
+            exit_funcs[exit_func_count]();
+            exit_funcs[exit_func_count] = NULL;
         }
     }
 
-    exit_func_count = 0;
-
-    if(soc_buffer != NULL) {
+    /* Never initialised (or init failed before socInit took it): safe to free. */
+    if(!soc_inited && soc_buffer != NULL) {
         free(soc_buffer);
         soc_buffer = NULL;
     }
+}
+
+static Result soc_init_wrapper() {
+    Result res = socInit(soc_buffer, 0x200000);
+    soc_inited = R_SUCCEEDED(res);
+    return res;
 }
 
 #define INIT_SERVICE(initStatement, exitFunc) (R_SUCCEEDED(res = (initStatement)) && (exit_funcs[exit_func_count++] = (exitFunc)))
@@ -92,7 +116,10 @@ void cleanup_services() {
 Result init_services() {
     Result res = 0;
 
-    soc_buffer = memalign(0x1000, 0x200000);
+    if(soc_buffer == NULL) {
+        soc_buffer = memalign(0x1000, 0x200000);
+    }
+
     if(soc_buffer != NULL) {
         Handle tempAM = 0;
         if(R_SUCCEEDED(res = srvGetServiceHandle(&tempAM, "am:net"))) {
@@ -104,7 +131,7 @@ Result init_services() {
                && INIT_SERVICE(ptmuInit(), ptmuExit)
                && INIT_SERVICE(pxiDevInit(), pxiDevExit)
                && INIT_SERVICE(httpcInit(0), httpcExit)
-               && INIT_SERVICE(socInit(soc_buffer, 0x200000), (void (*)()) socExit));
+               && INIT_SERVICE(soc_init_wrapper(), soc_exit_wrapper));
         }
     } else {
         res = R_APP_OUT_OF_MEMORY;
@@ -159,6 +186,8 @@ void init() {
 
     AM_InitializeExternalTitleDatabase(false);
 
+    http_init();
+
     screen_init();
     ui_init();
     task_init();
@@ -169,10 +198,14 @@ void init() {
 }
 
 void cleanup() {
-    clipboard_clear();
-
+    /* Stop every background worker BEFORE any service goes away. */
+    jukebox_shutdown();
     ftp_exit();
     selfupdate_exit();
+    http_abort_all();
+
+    clipboard_clear();
+
     settings_exit();
     task_exit();
     ui_exit();

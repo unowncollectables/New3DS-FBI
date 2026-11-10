@@ -1,4 +1,5 @@
 #include <malloc.h>
+#include <string.h>
 
 #include <3ds.h>
 
@@ -7,8 +8,8 @@
 #include "ui.h"
 
 typedef struct {
-    const char* hint;
-    const char* initialText;
+    char* hint;        /* own copies: callers often pass stack buffers */
+    char* initialText;
     SwkbdType type;
     u32 features;
     SwkbdValidInput validation;
@@ -29,6 +30,10 @@ static void kbd_update(ui_view* view, void* data, float bx1, float by1, float bx
     swkbdSetInitialText(&swkbd, kbdData->initialText);
     swkbdSetFeatures(&swkbd, kbdData->features);
     swkbdSetValidation(&swkbd, kbdData->validation, 0, 0);
+    if(kbdData->type == SWKBD_TYPE_NUMPAD) {
+        /* Give the number pad a decimal point key for money amounts. */
+        swkbdSetNumpadKeys(&swkbd, '.', 0);
+    }
     SwkbdButton button = swkbdInputText(&swkbd, kbdData->response, kbdData->maxSize);
 
     ui_pop();
@@ -38,6 +43,8 @@ static void kbd_update(ui_view* view, void* data, float bx1, float by1, float bx
     }
 
     free(kbdData->response);
+    free(kbdData->hint);
+    free(kbdData->initialText);
     free(kbdData);
     ui_destroy(view);
 }
@@ -50,8 +57,16 @@ ui_view* kbd_display(const char* hint, const char* initialText, SwkbdType type, 
         return NULL;
     }
 
-    kbdData->hint = hint;
-    kbdData->initialText = initialText;
+    kbdData->hint = strdup(hint != NULL ? hint : "");
+    kbdData->initialText = strdup(initialText != NULL ? initialText : "");
+    if(kbdData->hint == NULL || kbdData->initialText == NULL) {
+        error_display(NULL, NULL, "Failed to allocate keyboard data.");
+
+        free(kbdData->hint);
+        free(kbdData->initialText);
+        free(kbdData);
+        return NULL;
+    }
     kbdData->type = type;
     kbdData->features = features;
     kbdData->validation = validation;
@@ -61,6 +76,8 @@ ui_view* kbd_display(const char* hint, const char* initialText, SwkbdType type, 
     if(kbdData->response == NULL) {
         error_display(NULL, NULL, "Failed to allocate keyboard response buffer.");
 
+        free(kbdData->hint);
+        free(kbdData->initialText);
         free(kbdData);
         return NULL;
     }
