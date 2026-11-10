@@ -80,7 +80,7 @@ static void action_delete_tickets_update(ui_view* view, void* data, float* progr
         info_destroy(view);
 
         if(R_SUCCEEDED(deleteData->deleteInfo.result)) {
-            prompt_display_notify("Success", "Ticket(s) deleted.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "Ticket(s) deleted.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         action_delete_tickets_free_data(deleteData);
@@ -148,7 +148,7 @@ static void action_delete_tickets_loading_update(ui_view* view, void* data, floa
             loadingData->deleteData->deleteInfo.total = linked_list_size(&loadingData->deleteData->contents);
             loadingData->deleteData->deleteInfo.processed = loadingData->deleteData->deleteInfo.total;
 
-            prompt_display_yes_no("Confirmation", loadingData->message, COLOR_TEXT, loadingData->deleteData, action_delete_tickets_draw_top, action_delete_tickets_onresponse);
+            prompt_display_yes_no("Are you sure?", loadingData->message, COLOR_TEXT, loadingData->deleteData, action_delete_tickets_draw_top, action_delete_tickets_onresponse);
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate ticket list.");
 
@@ -222,7 +222,7 @@ static void action_delete_tickets_internal(linked_list* items, list_item* select
         data->deleteInfo.total = 1;
         data->deleteInfo.processed = data->deleteInfo.total;
 
-        prompt_display_yes_no("Confirmation", message, COLOR_TEXT, data, action_delete_tickets_draw_top, action_delete_tickets_onresponse);
+        prompt_display_yes_no("Are you sure?", message, COLOR_TEXT, data, action_delete_tickets_draw_top, action_delete_tickets_onresponse);
     }
 }
 

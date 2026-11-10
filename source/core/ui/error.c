@@ -500,7 +500,9 @@ static const char* description_to_string(Result res) {
                 case R_APP_PARSE_FAILED:
                     return "Parse failed";
                 case R_APP_BAD_DATA:
-                    return "Bad data";
+                    return "Bad or damaged data";
+                case R_APP_SAFETY_REFUSED:
+                    return "Blocked by safety check";
                 case R_APP_HTTP_TOO_MANY_REDIRECTS:
                     return "Too many redirects";
                 default:

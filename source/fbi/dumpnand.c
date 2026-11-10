@@ -92,7 +92,7 @@ static void dumpnand_update(ui_view* view, void* data, float* progress, char* te
         info_destroy(view);
 
         if(R_SUCCEEDED(dumpData->result)) {
-            prompt_display_notify("Success", "NAND dumped.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "NAND dumped.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         free(dumpData);
@@ -164,5 +164,5 @@ void dumpnand_open() {
 
     data->finished = true;
 
-    prompt_display_yes_no("Confirmation", "Dump raw NAND image to the SD card?", COLOR_TEXT, data, NULL, dumpnand_onresponse);
+    prompt_display_yes_no("Are you sure?", "Dump raw NAND image to the SD card?", COLOR_TEXT, data, NULL, dumpnand_onresponse);
 }

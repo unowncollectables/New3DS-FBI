@@ -606,7 +606,7 @@ static void files_open_nand_warning_onresponse(ui_view* view, void* data, u32 re
 }
 
 void files_open_nand_warning(FS_ArchiveID archive) {
-    prompt_display_yes_no("Confirmation", "Modifying the NAND is dangerous and can render\n the system inoperable.\nMake sure you know what you are doing.\n\nProceed?", COLOR_TEXT, (void*) archive, NULL, files_open_nand_warning_onresponse);
+    prompt_display_yes_no("Warning", "Changing NAND files is dangerous and\ncan stop the console from working.\nOnly continue if you know exactly\nwhat you are doing.\n\nContinue?", COLOR_WARNING, (void*) archive, NULL, files_open_nand_warning_onresponse);
 }
 
 void files_open_sd() {

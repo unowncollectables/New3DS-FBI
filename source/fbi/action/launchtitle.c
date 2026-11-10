@@ -32,5 +32,5 @@ static void action_launch_title_onresponse(ui_view* view, void* data, u32 respon
 }
 
 void action_launch_title(linked_list* items, list_item* selected) {
-    prompt_display_yes_no("Confirmation", "Launch the selected title?", COLOR_TEXT, selected->data, task_draw_title_info, action_launch_title_onresponse);
+    prompt_display_yes_no("Are you sure?", "Launch the selected title?", COLOR_TEXT, selected->data, task_draw_title_info, action_launch_title_onresponse);
 }

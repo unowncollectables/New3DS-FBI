@@ -106,7 +106,7 @@ static void action_delete_update(ui_view* view, void* data, float* progress, cha
         info_destroy(view);
 
         if(R_SUCCEEDED(deleteData->deleteInfo.result)) {
-            prompt_display_notify("Success", "Deleted.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "Deleted.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         action_delete_free_data(deleteData);

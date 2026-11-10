@@ -8,6 +8,7 @@
 #include "section.h"
 #include "task/uitask.h"
 #include "../core/core.h"
+#include "extras.h"
 
 /* Local-only port CIAs. Never download / never contact the network here.
    Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / platinum3ds.cia)
@@ -50,8 +51,7 @@ static bool port_is_known_title(u64 titleId) {
 }
 
 static void port_format_version(char* out, size_t outSize, u16 version) {
-    snprintf(out, outSize, "%u (%u.%u.%u)",
-             (unsigned) version,
+    snprintf(out, outSize, "%u.%u.%u",
              (unsigned) ((version >> 10) & 0x3F),
              (unsigned) ((version >> 4) & 0x3F),
              (unsigned) (version & 0xF));
@@ -71,55 +71,49 @@ static bool port_get_installed_version(u64 titleId, u16* versionOut, bool* insta
     return false;
 }
 
+/* Short, plain label that fits the 320px bottom screen. Details are on the top screen. */
 static void port_build_item_label(list_item* item, file_info* info) {
     const char* portName = port_name_for_title(info->ciaInfo.titleId);
     if(portName == NULL) {
         portName = "Port";
     }
 
-    char ciaVer[96];
-    char installedVer[48];
     bool installed = false;
     u16 installedVersion = 0;
-
-    /* Builder embeds SS3DS_VERSION (e.g. "run 59") in SMDH publisher; also CIA title version. */
-    if(info->ciaInfo.loaded && info->ciaInfo.hasMeta && !string_is_empty(info->ciaInfo.meta.publisher)) {
-        char titleVer[40];
-        port_format_version(titleVer, sizeof(titleVer), info->ciaInfo.version);
-        snprintf(ciaVer, sizeof(ciaVer), "%s / %s", info->ciaInfo.meta.publisher, titleVer);
-    } else if(info->ciaInfo.loaded) {
-        port_format_version(ciaVer, sizeof(ciaVer), info->ciaInfo.version);
-    } else {
-        snprintf(ciaVer, sizeof(ciaVer), "size %.1f %s",
-                 ui_get_display_size(info->size),
-                 ui_get_display_size_units(info->size));
-    }
-
     port_get_installed_version(info->ciaInfo.titleId, &installedVersion, &installed);
-    if(installed) {
-        port_format_version(installedVer, sizeof(installedVer), installedVersion);
-    } else {
-        snprintf(installedVer, sizeof(installedVer), "not installed");
-    }
 
-    char where[24];
-    if(strncmp(info->path, PORTS_PATH_PRIMARY "/", strlen(PORTS_PATH_PRIMARY) + 1) == 0) {
-        snprintf(where, sizeof(where), "cias");
-    } else {
-        snprintf(where, sizeof(where), "fbi/ports");
-    }
+    char fileVer[24];
+    char instVer[24];
+    port_format_version(fileVer, sizeof(fileVer), info->ciaInfo.version);
+    port_format_version(instVer, sizeof(instVer), installedVersion);
 
-    snprintf(item->name, LIST_ITEM_NAME_MAX, "%s [%s] | installed %s -> CIA %s",
-             portName, where, installedVer, ciaVer);
+    bool inPorts = strncmp(info->path, PORTS_PATH_PRIMARY "/", strlen(PORTS_PATH_PRIMARY) + 1) != 0;
+    const char* where = inPorts ? " (fbi/ports)" : "";
 
-    if(!installed) {
-        item->color = COLOR_WARNING;
-    } else if(info->ciaInfo.loaded && info->ciaInfo.version != installedVersion) {
-        item->color = COLOR_ACCENT;
-    } else if(info->ciaInfo.loaded && info->ciaInfo.version == installedVersion) {
-        item->color = COLOR_SUCCESS;
-    } else {
+    if(!info->ciaInfo.loaded) {
+        snprintf(item->name, LIST_ITEM_NAME_MAX, "%s%s", portName, where);
         item->color = COLOR_TEXT;
+    } else if(!installed) {
+        snprintf(item->name, LIST_ITEM_NAME_MAX, "%s: not installed yet (%s)%s", portName, fileVer, where);
+        item->color = COLOR_WARNING;
+    } else if(info->ciaInfo.version > installedVersion) {
+        snprintf(item->name, LIST_ITEM_NAME_MAX, "%s: update ready %s -> %s%s", portName, instVer, fileVer, where);
+        item->color = COLOR_ACCENT;
+    } else if(info->ciaInfo.version < installedVersion) {
+        snprintf(item->name, LIST_ITEM_NAME_MAX, "%s: file is OLDER %s -> %s%s", portName, instVer, fileVer, where);
+        item->color = COLOR_WARNING;
+    } else {
+        snprintf(item->name, LIST_ITEM_NAME_MAX, "%s: up to date (%s)%s", portName, instVer, where);
+        item->color = COLOR_SUCCESS;
+    }
+}
+
+static void port_refresh_labels(linked_list* list) {
+    linked_list_iter iter;
+    linked_list_iterate(list, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        port_build_item_label(item, (file_info*) item->data);
     }
 }
 
@@ -210,7 +204,7 @@ static Result port_open_dst(void* data, u32 index, void* initialReadBlock, u64 s
 
     /* Strict: only the two known port title IDs, and still on the SD allowlist. */
     if(!port_is_known_title(titleId) || !fs_is_remote_install_allowed(titleId)) {
-        return R_APP_BAD_DATA;
+        return R_APP_SAFETY_REFUSED;
     }
 
     info->ciaInfo.titleId = titleId;
@@ -242,12 +236,15 @@ static Result port_restore(void* data, u32 index) {
 }
 
 static bool port_install_error(void* data, u32 index, Result res, ui_view** errorView) {
-    if(res == R_APP_BAD_DATA) {
+    if(res == R_APP_SAFETY_REFUSED) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
-                                       "Safety refusal.\n\nOnly SoulSilver / Platinum\nport CIAs in sdmc:/cias/\n(or sdmc:/fbi/ports/)\nare accepted. System/NAND/\nfirmware titles are never installed.");
+                                       "Blocked: this file is not a\nSoulSilver or Platinum port.\n\nOnly those two ports can be\nupdated here.");
+    } else if(res == R_APP_BAD_DATA) {
+        *errorView = error_display_res(data, port_updater_draw_top, res,
+                                       "This CIA file looks broken\nor incomplete. Build or copy\nit again. Nothing was changed.");
     } else {
         *errorView = error_display_res(data, port_updater_draw_top, res,
-                                       "Port update failed.\nOverwrite was cancelled;\nprevious title/save untouched.");
+                                       "The update did not finish.\nYour game and save were\nnot changed.");
     }
 
     return false;
@@ -260,12 +257,18 @@ static void port_install_update(ui_view* view, void* data, float* progress, char
         ui_pop();
         info_destroy(view);
 
+        extras_install_end();
+
         if(R_SUCCEEDED(portData->installInfo.result)) {
-            prompt_display_notify("Update my ports",
-                                  "Overwrite install finished.\nSave data was preserved.",
+            file_info* doneInfo = (file_info*) portData->updatingItem->data;
+            extras_history_append(doneInfo != NULL ? doneInfo->name : "Port", "OK");
+            prompt_display_notify("All done!",
+                                  "Your port is updated.\nYour save was kept.",
                                   COLOR_SUCCESS, portData, port_updater_draw_top, NULL);
         }
 
+        /* Show the new installed version right away (no need to press X). */
+        port_refresh_labels(&portData->contents);
         portData->updatingItem = NULL;
         return;
     }
@@ -333,14 +336,24 @@ static void port_start_install(port_updater_data* data, list_item* item) {
     data->installInfo.result = 0;
     data->installInfo.cancelEvent = 0;
 
-    Result res = task_data_op(&data->installInfo);
-    if(R_FAILED(res)) {
-        error_display_res(data, port_updater_draw_top, res, "Failed to start port update.");
+    if(!extras_battery_ok_for_long_job()) {
+        prompt_display_notify("Battery low",
+                              "Battery looks low and the console\nis not charging.\n\nPlug in, then try again.",
+                              COLOR_WARNING, NULL, NULL, NULL);
         data->updatingItem = NULL;
         return;
     }
 
-    info_display("Update my ports", "B: Cancel (safe rollback)", true, data, port_install_update, port_updater_draw_top);
+    extras_install_begin();
+    Result res = task_data_op(&data->installInfo);
+    if(R_FAILED(res)) {
+        extras_install_end();
+        error_display_res(data, port_updater_draw_top, res, "Could not start the update.");
+        data->updatingItem = NULL;
+        return;
+    }
+
+    info_display("Updating port…", "B = cancel (nothing changes)", true, data, port_install_update, port_updater_draw_top);
 }
 
 static void port_ask_update(port_updater_data* data, list_item* item) {
@@ -352,20 +365,24 @@ static void port_ask_update(port_updater_data* data, list_item* item) {
 
     data->updatingItem = item;
 
+    bool installed = false;
+    u16 installedVersion = 0;
+    port_get_installed_version(info->ciaInfo.titleId, &installedVersion, &installed);
+    bool older = installed && info->ciaInfo.loaded && info->ciaInfo.version < installedVersion;
+
     char msg[320];
     snprintf(msg, sizeof(msg),
-             "Update %s from local CIA?\n\n"
-             "Uses overwrite install (AM).\n"
-             "Does NOT delete the title first.\n"
-             "Save data is preserved.\n"
-             "On failure, install is cancelled\n"
-             "and the previous title stays.\n\n"
-             "File: %.40s\n"
-             "100%% local — no download.",
-             name, info->name);
+             "Update %s using this file?\n%.40s\n\n"
+             "%s"
+             "Your save is kept. The old version\n"
+             "is not deleted first. If it fails,\n"
+             "nothing changes. No internet used.\n\n"
+             "Yes = update\nNo = cancel",
+             name, info->name,
+             older ? "WARNING: this file is OLDER than\nwhat is installed now.\n\n" : "");
 
     /* Requires explicit Yes before AM overwrite. */
-    prompt_display_yes_no("Update my ports", msg, COLOR_TEXT, data, port_updater_draw_top, port_confirm_onresponse);
+    prompt_display_yes_no(older ? "Install older version?" : "Update port?", msg, older ? COLOR_WARNING : COLOR_TEXT, data, port_updater_draw_top, port_confirm_onresponse);
 }
 
 /* ---- list UI ---- */
@@ -387,12 +404,7 @@ static void port_list_update(ui_view* view, void* data, linked_list* items, list
 
     if(hidKeysDown() & KEY_X) {
         /* Refresh labels (installed versions may have changed). */
-        linked_list_iter iter;
-        linked_list_iterate(items, &iter);
-        while(linked_list_iter_has_next(&iter)) {
-            list_item* item = (list_item*) linked_list_iter_next(&iter);
-            port_build_item_label(item, (file_info*) item->data);
-        }
+        port_refresh_labels(items);
     }
 
     if(linked_list_size(items) == 0) {
@@ -425,6 +437,7 @@ typedef struct {
     populate_files_data popData;
     u32 pathIndex; /* 0 = /cias, 1 = /fbi/ports */
     const char* paths[2];
+    bool cancelled;
 } port_loading_data;
 
 static void port_filter_known_only(port_updater_data* data) {
@@ -495,9 +508,9 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
         loadingData->popData.items = NULL;
 
         loadingData->pathIndex++;
-        if(loadingData->pathIndex < 2) {
+        if(loadingData->pathIndex < 2 && !loadingData->cancelled) {
             if(port_start_path_scan(loadingData)) {
-                snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...\n(local only, no network)",
+                snprintf(text, PROGRESS_TEXT_MAX, "Looking in %s…\n(on your SD card only)",
                          loadingData->paths[loadingData->pathIndex]);
                 return;
             }
@@ -508,15 +521,15 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
 
         port_filter_known_only(loadingData->portData);
 
-        if(linked_list_size(&loadingData->portData->contents) == 0) {
-            prompt_display_notify("Update my ports",
-                                  "No SoulSilver / Platinum CIAs found.\n\n"
-                                  "Pokemon 3DS Builder copies them to:\n"
-                                  "  sdmc:/cias/soulsilver3ds.cia\n"
-                                  "  sdmc:/cias/platinum3ds.cia\n\n"
-                                  "Optional: also sdmc:/fbi/ports/\n\n"
-                                  "Matched by title ID only.\n"
-                                  "Nothing is downloaded — local only.",
+        if(loadingData->cancelled) {
+            port_updater_free_data(loadingData->portData);
+        } else if(linked_list_size(&loadingData->portData->contents) == 0) {
+            prompt_display_notify("No ports found",
+                                  "No SoulSilver or Platinum port\nfiles were found.\n\n"
+                                  "Put your built .cia file in the\n"
+                                  "/cias folder (or /fbi/ports)\n"
+                                  "on the SD card, then try again.\n\n"
+                                  "Nothing is downloaded.",
                                   COLOR_TEXT, NULL, NULL, NULL);
             port_updater_free_data(loadingData->portData);
         } else {
@@ -528,10 +541,11 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
     }
 
     if((hidKeysDown() & KEY_B) && !loadingData->popData.finished) {
+        loadingData->cancelled = true;
         svcSignalEvent(loadingData->popData.cancelEvent);
     }
 
-    snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...\n(local only, no network)",
+    snprintf(text, PROGRESS_TEXT_MAX, "Looking in %s…\n(on your SD card only)",
              loadingData->paths[loadingData->pathIndex]);
 }
 
@@ -577,7 +591,7 @@ void portupdater_open() {
 
     Result res = 0;
     if(R_FAILED(res = fs_open_archive(&data->archive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, "")))) {
-        error_display_res(NULL, NULL, res, "Failed to open SDMC.");
+        error_display_res(NULL, NULL, res, "Could not open the SD card.");
         port_updater_free_data(data);
         return;
     }
@@ -600,7 +614,7 @@ void portupdater_open() {
     loadingData->paths[1] = PORTS_PATH_SECONDARY;
 
     if(!port_start_path_scan(loadingData)) {
-        error_display(NULL, NULL, "Failed to start ports scan.");
+        error_display(NULL, NULL, "Could not look for port files.");
         free(loadingData);
         port_updater_free_data(data);
         return;

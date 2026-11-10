@@ -339,7 +339,7 @@ static void action_paste_contents_loading_update(ui_view* view, void* data, floa
 
 void action_paste_contents(linked_list* items, list_item* selected) {
     if(!clipboard_has_contents()) {
-        prompt_display_notify("Failure", "Clipboard empty.", COLOR_TEXT, NULL, NULL, NULL);
+        prompt_display_notify("Can't do that", "Nothing is copied yet.\nCopy a file or folder first.", COLOR_TEXT, NULL, NULL, NULL);
         return;
     }
 

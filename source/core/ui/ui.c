@@ -189,7 +189,7 @@ static void ui_draw_top(ui_view* ui) {
     if(R_SUCCEEDED(PTMU_GetBatteryChargeState(&batteryChargeState)) && batteryChargeState) {
         batteryIcon = TEXTURE_BATTERY_CHARGING;
     } else if(R_SUCCEEDED(PTMU_GetBatteryLevel(&batteryLevel))) {
-        batteryIcon = TEXTURE_BATTERY_0 + batteryLevel;
+        batteryIcon = TEXTURE_BATTERY_0 + (batteryLevel > 5 ? 5 : batteryLevel);
     } else {
         batteryIcon = TEXTURE_BATTERY_0;
     }
@@ -205,7 +205,8 @@ static void ui_draw_top(ui_view* ui) {
     u32 wifiIcon = 0;
     u32 wifiStatus = 0;
     if(R_SUCCEEDED(ACU_GetWifiStatus(&wifiStatus)) && wifiStatus) {
-        wifiIcon = TEXTURE_WIFI_0 + osGetWifiStrength();
+        u8 wifiStrength = osGetWifiStrength();
+        wifiIcon = TEXTURE_WIFI_0 + (wifiStrength > 3 ? 3 : wifiStrength);
     } else {
         wifiIcon = TEXTURE_WIFI_DISCONNECTED;
     }

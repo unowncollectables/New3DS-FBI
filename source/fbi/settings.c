@@ -174,36 +174,36 @@ void settings_set_accent(u32 accent) {
     resources_set_accent(accent);
 }
 
-static list_item s_auto_check = {"Check for app updates: On", COLOR_TEXT, NULL};
-static list_item s_advanced = {"Show advanced tools: Off", COLOR_TEXT, NULL};
-static list_item s_ftp_pass = {"FTP password: (none)", COLOR_TEXT, NULL};
-static list_item s_ftp_awake = {"FTP keep screen awake: On", COLOR_TEXT, NULL};
+static list_item s_auto_check = {"Check for updates on start: On", COLOR_TEXT, NULL};
+static list_item s_advanced = {"Show Advanced tools: Off", COLOR_TEXT, NULL};
+static list_item s_ftp_pass = {"FTP password: None", COLOR_TEXT, NULL};
+static list_item s_ftp_awake = {"FTP stay awake: On", COLOR_TEXT, NULL};
 static list_item s_theme = {"Theme: Light", COLOR_TEXT, NULL};
 static list_item s_accent = {"Accent colour: Blue", COLOR_ACCENT, NULL};
-static list_item s_sound = {"Done screen extras: On", COLOR_TEXT, NULL};
+static list_item s_sound = {"Show install time: On", COLOR_TEXT, NULL};
 static list_item s_about_hint = {"About / Credits", COLOR_HINT, NULL};
 
 static void settings_refresh_labels(void) {
     bool autoCheck = selfupdate_check_enabled();
-    snprintf(s_auto_check.name, LIST_ITEM_NAME_MAX, "Check for app updates: %s", autoCheck ? "On" : "Off");
+    snprintf(s_auto_check.name, LIST_ITEM_NAME_MAX, "Check for updates on start: %s", autoCheck ? "On" : "Off");
     s_auto_check.color = autoCheck ? COLOR_ENABLED : COLOR_DISABLED;
 
     bool adv = settings_show_advanced();
-    snprintf(s_advanced.name, LIST_ITEM_NAME_MAX, "Show advanced tools: %s", adv ? "On" : "Off");
+    snprintf(s_advanced.name, LIST_ITEM_NAME_MAX, "Show Advanced tools: %s", adv ? "On" : "Off");
     s_advanced.color = adv ? COLOR_WARNING : COLOR_TEXT;
 
     if(g_ftp_password[0] == '\0') {
-        snprintf(s_ftp_pass.name, LIST_ITEM_NAME_MAX, "FTP password: (none)");
+        snprintf(s_ftp_pass.name, LIST_ITEM_NAME_MAX, "FTP password: None");
     } else {
-        snprintf(s_ftp_pass.name, LIST_ITEM_NAME_MAX, "FTP password: (set)");
+        snprintf(s_ftp_pass.name, LIST_ITEM_NAME_MAX, "FTP password: Set");
     }
 
-    snprintf(s_ftp_awake.name, LIST_ITEM_NAME_MAX, "FTP keep screen awake: %s",
+    snprintf(s_ftp_awake.name, LIST_ITEM_NAME_MAX, "FTP stay awake: %s",
              g_ftp_keep_awake ? "On" : "Off");
     s_ftp_awake.color = g_ftp_keep_awake ? COLOR_ENABLED : COLOR_DISABLED;
 
     bool sound = extras_sound_on_done();
-    snprintf(s_sound.name, LIST_ITEM_NAME_MAX, "Done screen extras: %s", sound ? "On" : "Off");
+    snprintf(s_sound.name, LIST_ITEM_NAME_MAX, "Show install time: %s", sound ? "On" : "Off");
     s_sound.color = sound ? COLOR_ENABLED : COLOR_DISABLED;
 
     snprintf(s_theme.name, LIST_ITEM_NAME_MAX, "Theme: %s", g_dark_theme ? "Dark" : "Light");
@@ -255,15 +255,15 @@ static void settings_draw_top(ui_view* view, void* data, float x1, float y1, flo
     } else if(selected == &s_advanced) {
         tip = "When On, an Advanced folder appears on the main menu with expert tools. Leave this Off unless you know you need it.";
     } else if(selected == &s_ftp_pass) {
-        tip = "Optional password for FTP. Leave empty for easy use at home. Only use FTP on your home Wi-Fi.";
+        tip = "Optional password for Send files from your PC (FTP). Leave empty for easy use at home. Only use it on your home Wi-Fi.";
     } else if(selected == &s_ftp_awake) {
-        tip = "When On, the screen stays awake while the FTP screen is open so transfers are not interrupted.";
+        tip = "When On, the console will not go to sleep while the Send files from your PC screen is open, so transfers are not cut off.";
     } else if(selected == &s_theme) {
-        tip = "Light or Dark look. Changes right away. If you put a theme in sdmc:/fbi/theme/, that still wins.";
+        tip = "Light or Dark look. Changes right away. A custom theme in sdmc:/fbi/theme/ still wins.";
     } else if(selected == &s_accent) {
         tip = "Colour for the top and bottom bars, selected rows, progress bars, and buttons. Try Green!";
     } else if(selected == &s_sound) {
-        tip = "When On, the Done screen shows how long the install took. Recent installs are always saved.";
+        tip = "When On, the All done! message shows how long the install took. Recent installs are always saved.";
     } else if(selected == &s_about_hint) {
         tip = "See who made this app and credits for FBI by Steveice10.";
     }
@@ -353,15 +353,22 @@ static void settings_update(ui_view* view, void* data, linked_list* items, list_
         }
     }
 
-    if(linked_list_size(items) == 0) {
-        linked_list_add(items, &s_auto_check);
+    /* FTP lives in Advanced, so its options only show when Advanced is on. */
+    static bool listedAdv = false;
+    bool adv = settings_show_advanced();
+    if(linked_list_size(items) == 0 || adv != listedAdv) {
+        linked_list_clear(items);
         linked_list_add(items, &s_theme);
         linked_list_add(items, &s_accent);
-        linked_list_add(items, &s_advanced);
-        linked_list_add(items, &s_ftp_pass);
-        linked_list_add(items, &s_ftp_awake);
+        linked_list_add(items, &s_auto_check);
         linked_list_add(items, &s_sound);
+        linked_list_add(items, &s_advanced);
+        if(adv) {
+            linked_list_add(items, &s_ftp_pass);
+            linked_list_add(items, &s_ftp_awake);
+        }
         linked_list_add(items, &s_about_hint);
+        listedAdv = adv;
     }
 }
 

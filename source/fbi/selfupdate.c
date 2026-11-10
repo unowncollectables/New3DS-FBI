@@ -349,13 +349,13 @@ bool selfupdate_is_skipped(void) {
 
 static list_item su_install = {"Install update", COLOR_SUCCESS, NULL};
 static list_item su_changelog = {"View changelog", COLOR_TEXT, NULL};
-static list_item su_toggle = {"Auto-check: On", COLOR_TEXT, NULL};
+static list_item su_toggle = {"Check on start: On", COLOR_TEXT, NULL};
 static list_item su_skip = {"Skip this version", COLOR_HINT, NULL};
 static list_item su_refresh = {"Check now", COLOR_TEXT, NULL};
 
 static void selfupdate_refresh_labels(void) {
     bool enabled = selfupdate_check_enabled();
-    snprintf(su_toggle.name, LIST_ITEM_NAME_MAX, "Auto-check: %s", enabled ? "On" : "Off");
+    snprintf(su_toggle.name, LIST_ITEM_NAME_MAX, "Check on start: %s", enabled ? "On" : "Off");
     su_toggle.color = enabled ? COLOR_ENABLED : COLOR_DISABLED;
 
     if(selfupdate_is_available()) {

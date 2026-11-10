@@ -67,7 +67,7 @@ static void action_rename_onresponse(ui_view* view, void* data, SwkbdButton butt
 
             linked_list_sort(renameData->items, NULL, task_compare_files);
 
-            prompt_display_notify("Success", "Renamed.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "Renamed.", COLOR_SUCCESS, NULL, NULL, NULL);
         } else {
             error_display_res(NULL, NULL, res, "Failed to perform rename.");
         }

@@ -87,7 +87,7 @@ static void action_erase_twl_save_update(ui_view* view, void* data, float* progr
         info_destroy(view);
 
         if(R_SUCCEEDED(eraseData->eraseInfo.result)) {
-            prompt_display_notify("Success", "Save erased.", COLOR_TEXT, eraseData->title, task_draw_title_info, NULL);
+            prompt_display_notify("Done", "Save erased.", COLOR_SUCCESS, eraseData->title, task_draw_title_info, NULL);
         }
 
         free(data);
@@ -164,5 +164,5 @@ void action_erase_twl_save(linked_list* items, list_item* selected) {
 
     data->eraseInfo.finished = true;
 
-    prompt_display_yes_no("Confirmation", "Erase the save of the selected title?", COLOR_TEXT, data, action_erase_twl_save_draw_top, action_erase_twl_save_onresponse);
+    prompt_display_yes_no("Are you sure?", "Erase the save of the selected title?", COLOR_TEXT, data, action_erase_twl_save_draw_top, action_erase_twl_save_onresponse);
 }

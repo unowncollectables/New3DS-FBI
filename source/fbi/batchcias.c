@@ -9,6 +9,7 @@
 #include "action/action.h"
 #include "task/uitask.h"
 #include "../core/core.h"
+#include "extras.h"
 
 #define BATCH_CIAS_PATH "/cias"
 
@@ -26,6 +27,8 @@ typedef struct {
     u32 skippedUnsafe;
 
     volatile bool n3dsContinue;
+
+    char menuTitle[64]; /* list_display keeps the pointer, so it must outlive the view */
 
     data_op_data installInfo;
 } batch_cias_data;
@@ -116,7 +119,7 @@ static Result batch_cias_open_dst(void* data, u32 index, void* initialReadBlock,
     }
 
     if(!fs_is_remote_install_allowed(titleId)) {
-        return R_APP_BAD_DATA;
+        return R_APP_SAFETY_REFUSED;
     }
 
     /* Keep meta in sync for UI. */
@@ -125,7 +128,7 @@ static Result batch_cias_open_dst(void* data, u32 index, void* initialReadBlock,
 
     bool n3ds = false;
     if(R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && !n3ds && ((titleId >> 28) & 0xF) == 2) {
-        ui_view* view = prompt_display_yes_no("Confirmation", "Title is intended for New 3DS systems.\nContinue?", COLOR_TEXT, data, batch_cias_draw_top, batch_cias_n3ds_onresponse);
+        ui_view* view = prompt_display_yes_no("New 3DS only", "This is made for New 3DS systems.\nInstall anyway?", COLOR_TEXT, data, batch_cias_draw_top, batch_cias_n3ds_onresponse);
         if(view != NULL) {
             svcWaitSynchronization(view->active, U64_MAX);
         }
@@ -144,6 +147,8 @@ static Result batch_cias_close_dst(void* data, u32 index, bool succeeded, u32 ha
         if(R_SUCCEEDED(res)) {
             batch_cias_data* batchData = (batch_cias_data*) data;
             file_info* info = (file_info*) ((list_item*) linked_list_get(&batchData->selected, index))->data;
+            batchData->succeeded++;
+            extras_history_append(info->name, "OK");
             if(info->ciaInfo.loaded) {
                 http_download_seed(info->ciaInfo.titleId);
             }
@@ -170,17 +175,21 @@ static Result batch_cias_restore(void* data, u32 index) {
 
 static bool batch_cias_error(void* data, u32 index, Result res, ui_view** errorView) {
     batch_cias_data* batchData = (batch_cias_data*) data;
-    batchData->failed++;
 
-    file_info* info = (file_info*) ((list_item*) linked_list_get(&batchData->selected, index))->data;
+    list_item* item = (list_item*) linked_list_get(&batchData->selected, index);
+    file_info* info = item != NULL ? (file_info*) item->data : NULL;
     const char* name = info != NULL ? info->name : "?";
 
-    if(res == R_APP_BAD_DATA) {
+    if(res == R_APP_SAFETY_REFUSED) {
+        batchData->skippedUnsafe++;
+        extras_history_append(name, "Blocked (system file)");
         *errorView = error_display_res(data, batch_cias_draw_top, res,
-                                       "Safety refusal — skipped CIA:\n%.40s\n\nOnly SD apps/updates/DLC allowed.", name);
+                                       "Skipped to keep your console safe:\n%.40s\n\nOnly games, updates and DLC\nfor the SD card are installed.", name);
     } else {
+        batchData->failed++;
+        extras_history_append(name, "Failed");
         *errorView = error_display_res(data, batch_cias_draw_top, res,
-                                       "Failed (continuing batch):\n%.40s", name);
+                                       "Could not install (moving on\nto the next one):\n%.40s", name);
     }
 
     /* continueOnError: return true to proceed to next file. */
@@ -207,12 +216,20 @@ static void batch_cias_free_data(batch_cias_data* data) {
 }
 
 static void batch_cias_show_summary(batch_cias_data* data) {
-    char buf[256];
-    snprintf(buf, sizeof(buf),
-             "Succeeded: %lu\nFailed: %lu\nSkipped (unsafe): %lu\nTotal attempted: %lu",
-             data->succeeded, data->failed, data->skippedUnsafe, data->installInfo.total);
+    u32 total = data->installInfo.total;
+    u32 done = data->succeeded + data->failed + data->skippedUnsafe;
+    u32 notStarted = total > done ? total - done : 0;
 
-    prompt_display_notify("Batch Summary", buf, COLOR_TEXT, NULL, NULL, NULL);
+    char buf[256];
+    int n = snprintf(buf, sizeof(buf),
+                     "Installed: %lu\nFailed: %lu\nSkipped (system files): %lu",
+                     (unsigned long) data->succeeded, (unsigned long) data->failed, (unsigned long) data->skippedUnsafe);
+    if(notStarted > 0 && n > 0 && (size_t) n < sizeof(buf)) {
+        snprintf(buf + n, sizeof(buf) - n, "\nNot started (cancelled): %lu", (unsigned long) notStarted);
+    }
+
+    prompt_display_notify(data->failed == 0 && notStarted == 0 ? "All done!" : "Finished",
+                          buf, data->failed == 0 && notStarted == 0 ? COLOR_SUCCESS : COLOR_WARNING, NULL, NULL, NULL);
 }
 
 static void batch_cias_install_update(ui_view* view, void* data, float* progress, char* text) {
@@ -226,14 +243,9 @@ static void batch_cias_install_update(ui_view* view, void* data, float* progress
         ui_pop();
         info_destroy(view);
 
-        if(R_SUCCEEDED(batchData->installInfo.result) || batchData->installInfo.continueOnError) {
-            /* Count successes as total processed minus failed (skipped unsafe already removed). */
-            u32 attempted = batchData->installInfo.total;
-            if(attempted >= batchData->failed) {
-                batchData->succeeded = attempted - batchData->failed;
-            }
-        }
+        extras_install_end();
 
+        /* Counts are tallied per CIA as each one finishes or fails. */
         batch_cias_show_summary(batchData);
         batch_cias_free_data(batchData);
         return;
@@ -287,12 +299,11 @@ static void batch_cias_ask_delete_onresponse(ui_view* view, void* data, u32 resp
     batchData->deleteAfter = response == PROMPT_YES;
 
     char msg[192];
-    snprintf(msg, sizeof(msg), "Install %u CIA(s) from sdmc:%s?\nDelete after each success: %s",
-             linked_list_size(&batchData->selected),
-             BATCH_CIAS_PATH,
-             batchData->deleteAfter ? "YES" : "no");
+    snprintf(msg, sizeof(msg), "Install %lu game file(s) from the\n/cias folder?\n\nDelete each file after it installs: %s\n\nYes = install\nNo = cancel",
+             (unsigned long) linked_list_size(&batchData->selected),
+             batchData->deleteAfter ? "Yes" : "No");
 
-    prompt_display_yes_no("Confirmation", msg, COLOR_TEXT, batchData, batch_cias_draw_top, batch_cias_confirm_install_onresponse);
+    prompt_display_yes_no("Install games?", msg, COLOR_TEXT, batchData, batch_cias_draw_top, batch_cias_confirm_install_onresponse);
 }
 
 static void batch_cias_prepare_selected_and_ask(batch_cias_data* data) {
@@ -322,21 +333,53 @@ static void batch_cias_prepare_selected_and_ask(batch_cias_data* data) {
 
     if(linked_list_size(&data->selected) == 0) {
         char buf[160];
-        snprintf(buf, sizeof(buf), "Nothing safe to install.\n\nSkipped (system/NAND/unsafe): %lu\nOnly SD apps/updates/DLC allowed.", (unsigned long) data->skippedUnsafe);
-        prompt_display_safety_refusal("Batch CIAs", buf, NULL, NULL, NULL);
+        snprintf(buf, sizeof(buf), "Nothing safe to install.\n\nSkipped (system files): %lu\nOnly games, updates and DLC\nfor the SD card are installed.", (unsigned long) data->skippedUnsafe);
+        prompt_display_safety_refusal("Nothing to install", buf, NULL, NULL, NULL);
         batch_cias_free_data(data);
         return;
     }
 
     /* Delete-after defaults OFF: ask explicitly; Yes enables deletion. */
     prompt_display_yes_no("Delete after install?",
-                          "Delete each CIA from /cias after it\ninstalls successfully?\n\nRecommended: No",
+                          "Delete each file from /cias after it\ninstalls OK? (Frees SD space.)\n\nYes = delete after install\nNo = keep the files (safer)",
                           COLOR_TEXT, data, NULL, batch_cias_ask_delete_onresponse);
 }
 
 static void batch_cias_start_install(batch_cias_data* data) {
     data->succeeded = 0;
     data->failed = 0;
+
+    /* Same safety gates as single installs: enough SD space and battery. */
+    u64 need = 0;
+    linked_list_iter iter;
+    linked_list_iterate(&data->selected, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* it = (list_item*) linked_list_iter_next(&iter);
+        file_info* fi = it != NULL ? (file_info*) it->data : NULL;
+        if(fi != NULL) {
+            need += fi->size;
+        }
+    }
+    u64 have = 0;
+    if(!extras_sd_has_space(need, &have)) {
+        char msg[256];
+        char needS[32], haveS[32];
+        extras_format_bytes(needS, sizeof(needS), need);
+        extras_format_bytes(haveS, sizeof(haveS), have);
+        snprintf(msg, sizeof(msg),
+                 "These need about %s.\nYou only have %s free\non the SD card.\n\nPick fewer games or free some space.",
+                 needS, haveS);
+        prompt_display_notify("Not enough space", msg, COLOR_WARNING, NULL, NULL, NULL);
+        batch_cias_free_data(data);
+        return;
+    }
+    if(!extras_battery_ok_for_long_job()) {
+        prompt_display_notify("Battery low",
+                              "Battery looks low and the console\nis not charging.\n\nPlug in, then try again.",
+                              COLOR_WARNING, NULL, NULL, NULL);
+        batch_cias_free_data(data);
+        return;
+    }
 
     data->installInfo.data = data;
     data->installInfo.op = DATAOP_COPY;
@@ -361,16 +404,35 @@ static void batch_cias_start_install(batch_cias_data* data) {
     data->installInfo.total = linked_list_size(&data->selected);
     data->installInfo.processed = data->installInfo.total;
 
+    extras_install_begin();
     Result res = task_data_op(&data->installInfo);
     if(R_SUCCEEDED(res)) {
-        info_display("Batch Installing CIAs", "B = cancel", true, data, batch_cias_install_update, batch_cias_draw_top);
+        info_display("Installing games…", "B = cancel", true, data, batch_cias_install_update, batch_cias_draw_top);
     } else {
-        error_display_res(NULL, NULL, res, "Failed to start batch install.");
+        extras_install_end();
+        error_display_res(NULL, NULL, res, "Could not start installing.");
         batch_cias_free_data(data);
     }
 }
 
 /* ---- selection UI ---- */
+
+/* Show "[x] " / "[ ] " in front of each file name so ticks are obvious. */
+static void batch_cias_mark(list_item* item, bool on) {
+    file_info* info = (file_info*) item->data;
+    item->color = on ? COLOR_ENABLED : COLOR_TEXT;
+    snprintf(item->name, LIST_ITEM_NAME_MAX, "%s %s", on ? "[x]" : "[  ]", info != NULL ? info->name : "?");
+}
+
+static bool batch_cias_is_marked(list_item* item) {
+    return item->color == COLOR_ENABLED;
+}
+
+static void batch_cias_select_draw_top(ui_view* view, void* data, float x1, float y1, float x2, float y2, list_item* selected) {
+    if(selected != NULL && selected->data != NULL) {
+        task_draw_file_info(view, selected->data, x1, y1, x2, y2);
+    }
+}
 
 static void batch_cias_select_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
     batch_cias_data* batchData = (batch_cias_data*) data;
@@ -390,7 +452,7 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
         linked_list_iterate(items, &iter);
         while(linked_list_iter_has_next(&iter)) {
             list_item* item = (list_item*) linked_list_iter_next(&iter);
-            if(item->color == COLOR_ENABLED) {
+            if(batch_cias_is_marked(item)) {
                 /* Move ownership of selected file items into selected list */
                 linked_list_add(&batchData->selected, item);
             }
@@ -400,7 +462,7 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
         linked_list_iterate(&batchData->contents, &iter);
         while(linked_list_iter_has_next(&iter)) {
             list_item* item = (list_item*) linked_list_iter_next(&iter);
-            if(item->color == COLOR_ENABLED) {
+            if(batch_cias_is_marked(item)) {
                 linked_list_iter_remove(&iter);
             }
         }
@@ -409,7 +471,7 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
         list_destroy(view);
 
         if(linked_list_size(&batchData->selected) == 0) {
-            prompt_display_notify("Batch CIAs", "No CIAs selected.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Nothing picked", "No games were ticked.\nPress A on a game to tick it,\nthen press X to install.", COLOR_TEXT, NULL, NULL, NULL);
             batch_cias_free_data(batchData);
             return;
         }
@@ -419,7 +481,21 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
     }
 
     if(selected != NULL && (selectedTouched || (hidKeysDown() & KEY_A))) {
-        selected->color = selected->color == COLOR_ENABLED ? COLOR_DISABLED : COLOR_ENABLED;
+        batch_cias_mark(selected, !batch_cias_is_marked(selected));
+    }
+
+    if(hidKeysDown() & KEY_Y) {
+        /* Y = tick all / untick all */
+        bool anyOff = false;
+        linked_list_iter iter;
+        linked_list_iterate(items, &iter);
+        while(linked_list_iter_has_next(&iter)) {
+            if(!batch_cias_is_marked((list_item*) linked_list_iter_next(&iter))) anyOff = true;
+        }
+        linked_list_iterate(items, &iter);
+        while(linked_list_iter_has_next(&iter)) {
+            batch_cias_mark((list_item*) linked_list_iter_next(&iter), anyOff);
+        }
     }
 
     if(linked_list_size(items) == 0) {
@@ -427,14 +503,14 @@ static void batch_cias_select_update(ui_view* view, void* data, linked_list* ite
         linked_list_iterate(&batchData->contents, &iter);
         while(linked_list_iter_has_next(&iter)) {
             list_item* item = (list_item*) linked_list_iter_next(&iter);
-            item->color = COLOR_DISABLED;
+            batch_cias_mark(item, false);
             linked_list_add(items, item);
         }
     }
 }
 
 static void batch_cias_select_open(batch_cias_data* data) {
-    list_display("Pick games to install", "A = tick, X = install, B = back", data, batch_cias_select_update, NULL);
+    list_display("Pick games to install", "A = tick, Y = all, X = install, B = back", data, batch_cias_select_update, batch_cias_select_draw_top);
 }
 
 /* ---- action menu after scan ---- */
@@ -457,8 +533,8 @@ typedef struct {
     batch_cias_data* batchData;
 } batch_cias_menu_data;
 
-static list_item batch_action_all = {"Install all", COLOR_TEXT, NULL};
-static list_item batch_action_pick = {"Select which to install", COLOR_TEXT, NULL};
+static list_item batch_action_all = {"Install all of them", COLOR_TEXT, NULL};
+static list_item batch_action_pick = {"Pick which ones to install", COLOR_TEXT, NULL};
 
 static void batch_cias_menu_update(ui_view* view, void* data, linked_list* items, list_item* selected, bool selectedTouched) {
     batch_cias_menu_data* menuData = (batch_cias_menu_data*) data;
@@ -503,9 +579,8 @@ static void batch_cias_menu_open(batch_cias_data* data) {
 
     menuData->batchData = data;
 
-    char title[64];
-    snprintf(title, sizeof(title), "Batch CIAs (%u found)", linked_list_size(&data->contents));
-    list_display(title, "A = choose, B = back", menuData, batch_cias_menu_update, NULL);
+    snprintf(data->menuTitle, sizeof(data->menuTitle), "Games in /cias (%lu found)", (unsigned long) linked_list_size(&data->contents));
+    list_display(data->menuTitle, "A = choose, B = back", menuData, batch_cias_menu_update, NULL);
 }
 
 /* ---- loading /cias ---- */
@@ -513,6 +588,7 @@ static void batch_cias_menu_open(batch_cias_data* data) {
 typedef struct {
     batch_cias_data* batchData;
     populate_files_data popData;
+    bool cancelled;
 } batch_cias_loading_data;
 
 static void batch_cias_loading_update(ui_view* view, void* data, float* progress, char* text) {
@@ -522,11 +598,14 @@ static void batch_cias_loading_update(ui_view* view, void* data, float* progress
         ui_pop();
         info_destroy(view);
 
-        if(R_FAILED(loadingData->popData.result)) {
-            error_display_res(NULL, NULL, loadingData->popData.result, "Failed to list sdmc:/cias.");
+        if(loadingData->cancelled) {
+            /* B pressed while scanning: just go back. */
+            batch_cias_free_data(loadingData->batchData);
+        } else if(R_FAILED(loadingData->popData.result)) {
+            error_display_res(NULL, NULL, loadingData->popData.result, "Could not read the /cias folder.");
             batch_cias_free_data(loadingData->batchData);
         } else if(linked_list_size(&loadingData->batchData->contents) == 0) {
-            prompt_display_notify("Batch CIAs", "No .cia files in sdmc:/cias.\nCreate the folder and copy CIAs there.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("No games found", "There are no .cia files in the\n/cias folder on your SD card.\n\nCopy your .cia files there,\nthen try again.", COLOR_TEXT, NULL, NULL, NULL);
             batch_cias_free_data(loadingData->batchData);
         } else {
             batch_cias_menu_open(loadingData->batchData);
@@ -537,10 +616,11 @@ static void batch_cias_loading_update(ui_view* view, void* data, float* progress
     }
 
     if((hidKeysDown() & KEY_B) && !loadingData->popData.finished) {
+        loadingData->cancelled = true;
         svcSignalEvent(loadingData->popData.cancelEvent);
     }
 
-    snprintf(text, PROGRESS_TEXT_MAX, "Scanning sdmc:%s ...", BATCH_CIAS_PATH);
+    snprintf(text, PROGRESS_TEXT_MAX, "Looking in the /cias folder…");
 }
 
 static Result batch_cias_ensure_dir(FS_Archive archive) {
@@ -560,13 +640,13 @@ void batchcias_open() {
 
     Result res = 0;
     if(R_FAILED(res = fs_open_archive(&data->archive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, "")))) {
-        error_display_res(NULL, NULL, res, "Failed to open SDMC.");
+        error_display_res(NULL, NULL, res, "Could not open the SD card.");
         batch_cias_free_data(data);
         return;
     }
 
     if(R_FAILED(res = batch_cias_ensure_dir(data->archive))) {
-        error_display_res(NULL, NULL, res, "Failed to create sdmc:/cias.");
+        error_display_res(NULL, NULL, res, "Could not create the /cias folder.");
         batch_cias_free_data(data);
         return;
     }
@@ -590,11 +670,11 @@ void batchcias_open() {
 
     Result listRes = task_populate_files(&loadingData->popData);
     if(R_FAILED(listRes)) {
-        error_display_res(NULL, NULL, listRes, "Failed to start CIA scan.");
+        error_display_res(NULL, NULL, listRes, "Could not look in the /cias folder.");
         free(loadingData);
         batch_cias_free_data(data);
         return;
     }
 
-    info_display("Batch CIAs", "B = cancel", false, loadingData, batch_cias_loading_update, NULL);
+    info_display("Install games from SD", "B = cancel", false, loadingData, batch_cias_loading_update, NULL);
 }

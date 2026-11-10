@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include <3ds.h>
 
@@ -38,11 +39,30 @@ typedef struct {
     ticket_info ticketInfo;
     char currPath[FILE_PATH_MAX];
 
+    u64 requiredTitleId; /* copied from the global at start, so it cannot leak into a later install */
+    bool installedCia;
+
     data_op_data installInfo;
 } install_url_data;
 
+/* A save path supplied with a download (e.g. from a QR code) may only write a
+   .3dsx/.smdh inside sdmc:/3ds/. This stops a bad link from overwriting files
+   such as sdmc:/boot.firm. */
+static bool action_install_url_path_is_safe(const char* path) {
+    if(path == NULL || strncmp(path, "/3ds/", 5) != 0 || strstr(path, "..") != NULL || strchr(path, ':') != NULL || strchr(path, '\\') != NULL) {
+        return false;
+    }
+
+    size_t len = strlen(path);
+    if(len < 10) {
+        return false;
+    }
+
+    const char* ext = path + len - 5;
+    return strcasecmp(ext, ".3dsx") == 0 || strcasecmp(ext, ".smdh") == 0;
+}
+
 static void action_install_url_free_data(install_url_data* data) {
-    install_url_required_title_id = 0;
     if(data->finishedAll != NULL) {
         data->finishedAll(data->userData);
     }
@@ -87,7 +107,7 @@ static void action_install_url_draw_top(ui_view* view, void* data, float x1, flo
 static Result action_install_url_get_src_url(void* data, u32 index, char* url, size_t maxSize) {
     install_url_data* installData = (install_url_data*) data;
 
-    strncpy(url, installData->urls[index], maxSize);
+    string_copy(url, installData->urls[index], maxSize);
     return 0;
 }
 
@@ -109,11 +129,11 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
         if(R_SUCCEEDED(res = cia_get_title_id(&titleId, (u8*) initialReadBlock, installData->installInfo.bufferSize))) {
             /* Refuse system/firmware/NAND titles from URL/GitHub installs. */
             if(!fs_is_remote_install_allowed(titleId)) {
-                return R_APP_BAD_DATA;
+                return R_APP_SAFETY_REFUSED;
             }
 
-            if(install_url_required_title_id != 0 && titleId != install_url_required_title_id) {
-                return R_APP_BAD_DATA;
+            if(installData->requiredTitleId != 0 && titleId != installData->requiredTitleId) {
+                return R_APP_SAFETY_REFUSED;
             }
 
             /* URL installs always go to SD for allowed categories. */
@@ -121,7 +141,7 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
 
             bool n3ds = false;
             if(R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && !n3ds && ((titleId >> 28) & 0xF) == 2) {
-                ui_view* view = prompt_display_yes_no("Confirmation", "Title is intended for New 3DS systems.\nContinue?", COLOR_TEXT, data, action_install_url_draw_top, action_install_url_n3ds_onresponse);
+                ui_view* view = prompt_display_yes_no("New 3DS only", "This is made for New 3DS / 2DS.\nIt may not work on this console.\n\nInstall it anyway?", COLOR_TEXT, data, action_install_url_draw_top, action_install_url_n3ds_onresponse);
                 if(view != NULL) {
                     svcWaitSynchronization(view->active, U64_MAX);
                 }
@@ -134,15 +154,19 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
             /* Overwrite via AM (no AM_DeleteTitle). Cancel rolls back. */
             if(R_SUCCEEDED(res = AM_StartCiaInstallOverwrite(handle, dest))) {
                 installData->currTitleId = titleId;
+                installData->installedCia = true;
             }
         } else {
             /* Invalid/truncated CIA header. */
             res = R_APP_BAD_DATA;
         }
+    } else if(installData->requiredTitleId != 0) {
+        /* Self-update expects exactly one CIA; refuse anything else. */
+        res = R_APP_SAFETY_REFUSED;
     } else if(*(u16*) initialReadBlock == 0x0100) {
         if(R_SUCCEEDED(res = ticket_get_title_id(&installData->ticketInfo.titleId, (u8*) initialReadBlock, installData->installInfo.bufferSize))) {
             if(!fs_is_remote_install_allowed(installData->ticketInfo.titleId)) {
-                return R_APP_BAD_DATA;
+                return R_APP_SAFETY_REFUSED;
             }
 
             installData->contentType = CONTENT_TICKET;
@@ -159,7 +183,10 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
         FS_Archive sdmcArchive = 0;
         if(R_SUCCEEDED(res = FSUSER_OpenArchive(&sdmcArchive, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, "")))) {
             char dir[FILE_PATH_MAX];
-            if(strlen(installData->paths[index]) > 0) {
+            if(strlen(installData->paths[index]) > 0 && !action_install_url_path_is_safe(installData->paths[index])) {
+                FSUSER_CloseArchive(sdmcArchive);
+                return R_APP_SAFETY_REFUSED;
+            } else if(strlen(installData->paths[index]) > 0) {
                 string_get_parent_path(dir, installData->paths[index], FILE_PATH_MAX);
                 string_copy(installData->currPath, installData->paths[index], FILE_PATH_MAX);
             } else {
@@ -168,6 +195,10 @@ static Result action_install_url_open_dst(void* data, u32 index, void* initialRe
 
                 char name[FILE_NAME_MAX];
                 string_get_file_name(name, filename, FILE_NAME_MAX);
+
+                if(string_is_empty(name) || strcmp(name, ".") == 0 || strcmp(name, "..") == 0) {
+                    string_copy(name, "download", FILE_NAME_MAX);
+                }
 
                 snprintf(dir, FILE_PATH_MAX, "/3ds/%s/", name);
                 snprintf(installData->currPath, FILE_PATH_MAX, "/3ds/%s/%s.%s", name, name, *(u32*) initialReadBlock == 0x58534433 ? "3dsx" : "smdh");
@@ -253,17 +284,25 @@ static Result action_install_url_restore(void* data, u32 index) {
 static bool action_install_url_error(void* data, u32 index, Result res, ui_view** errorView) {
     install_url_data* installData = (install_url_data*) data;
 
+    if(res == R_APP_SAFETY_REFUSED) {
+        *errorView = error_display_res(data, action_install_url_draw_top, res,
+                                       installData->requiredTitleId != 0
+                                       ? "Blocked: the update file was\nnot New3DS FBI. Nothing changed."
+                                       : "Blocked to keep your console safe.\n\nOnly games, updates and DLC\nfor the SD card are allowed.\nNothing was changed.");
+        return true;
+    }
+
     if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, action_install_url_draw_top, res,
-                                       "Safety check refused this download.\n\nOnly SD apps / updates / DLC\nare allowed. System/NAND titles\nand firmware are never installed.");
+                                       "The download is not a CIA,\nticket or 3DSX, or it is\nbroken. Nothing was changed.");
         return true;
     }
 
     char* url = installData->urls[index];
     if(strlen(url) > 38) {
-        *errorView = error_display_res(data, action_install_url_draw_top, res, "Failed to install from URL.\n%.35s...", url);
+        *errorView = error_display_res(data, action_install_url_draw_top, res, "Could not install from this link.\n%.35s...", url);
     } else {
-        *errorView = error_display_res(data, action_install_url_draw_top, res, "Failed to install from URL.\n%.38s", url);
+        *errorView = error_display_res(data, action_install_url_draw_top, res, "Could not install from this link.\n%.38s", url);
     }
 
     return true;
@@ -277,7 +316,7 @@ static void action_install_url_install_update(ui_view* view, void* data, float* 
         info_destroy(view);
 
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            prompt_display_notify("Done!", "All done! Install finished.\nYou can open it from the Home Menu.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("All done!", installData->installedCia ? "Install finished.\nOpen it from the Home Menu." : "Install finished.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         action_install_url_free_data(installData);
@@ -306,9 +345,9 @@ static void action_install_url_confirm_onresponse(ui_view* view, void* data, u32
     if(response == PROMPT_YES) {
         Result res = task_data_op(&installData->installInfo);
         if(R_SUCCEEDED(res)) {
-            info_display("Installing From URL(s)", "B = cancel", true, data, action_install_url_install_update, action_install_url_draw_top);
+            info_display("Installing…", "B = cancel", true, data, action_install_url_install_update, action_install_url_draw_top);
         } else {
-            error_display_res(NULL, NULL, res, "Failed to initiate installation.");
+            error_display_res(NULL, NULL, res, "Could not start the install.");
 
             action_install_url_free_data(installData);
         }
@@ -321,12 +360,21 @@ void action_install_url(const char* confirmMessage, const char* urls, const char
                         void (*finishedURL)(void* data, u32 index),
                         void (*finishedAll)(void* data),
                         void (*drawTop)(ui_view* view, void* data, float x1, float y1, float x2, float y2, u32 index)) {
+    u64 requiredTitleId = install_url_required_title_id;
+    install_url_required_title_id = 0;
+
     install_url_data* data = (install_url_data*) calloc(1, sizeof(install_url_data));
     if(data == NULL) {
-        error_display(NULL, NULL, "Failed to allocate URL install data.");
+        error_display(NULL, NULL, "Out of memory.");
+
+        if(finishedAll != NULL) {
+            finishedAll(userData);
+        }
 
         return;
     }
+
+    data->requiredTitleId = requiredTitleId;
 
     data->installInfo.total = 0;
 
@@ -385,6 +433,14 @@ void action_install_url(const char* confirmMessage, const char* urls, const char
 
     data->userData = userData;
     data->finishedURL = finishedURL;
+
+    if(data->installInfo.total == 0) {
+        prompt_display_notify("No links", "No download links were found.", COLOR_WARNING, NULL, NULL, NULL);
+        data->finishedAll = finishedAll;
+        action_install_url_free_data(data);
+        return;
+    }
+
     data->finishedAll = finishedAll;
     data->drawTop = drawTop;
 
@@ -415,5 +471,5 @@ void action_install_url(const char* confirmMessage, const char* urls, const char
 
     data->installInfo.finished = true;
 
-    prompt_display_yes_no("Confirmation", confirmMessage, COLOR_TEXT, data, action_install_url_draw_top, action_install_url_confirm_onresponse);
+    prompt_display_yes_no("Install?", confirmMessage, COLOR_TEXT, data, action_install_url_draw_top, action_install_url_confirm_onresponse);
 }

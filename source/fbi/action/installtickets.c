@@ -158,7 +158,7 @@ static void action_install_tickets_update(ui_view* view, void* data, float* prog
         info_destroy(view);
 
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            prompt_display_notify("Success", "Install finished.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "Install finished.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         action_install_tickets_free_data(installData);
@@ -222,7 +222,7 @@ static void action_install_tickets_loading_update(ui_view* view, void* data, flo
             loadingData->installData->installInfo.total = linked_list_size(&loadingData->installData->contents);
             loadingData->installData->installInfo.processed = loadingData->installData->installInfo.total;
 
-            prompt_display_yes_no("Confirmation", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_tickets_draw_top, action_install_tickets_onresponse);
+            prompt_display_yes_no("Are you sure?", loadingData->message, COLOR_TEXT, loadingData->installData, action_install_tickets_draw_top, action_install_tickets_onresponse);
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate ticket list.");
 

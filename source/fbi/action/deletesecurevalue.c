@@ -20,7 +20,7 @@ static void action_delete_secure_value_update(ui_view* view, void* data, float* 
     if(R_FAILED(res)) {
         error_display_res(info, task_draw_title_info, res, "Failed to delete secure value.");
     } else {
-        prompt_display_notify("Success", "Secure value deleted.", COLOR_TEXT, info, task_draw_title_info, NULL);
+        prompt_display_notify("Done", "Secure value deleted.", COLOR_SUCCESS, info, task_draw_title_info, NULL);
     }
 }
 
@@ -31,5 +31,5 @@ static void action_delete_secure_value_onresponse(ui_view* view, void* data, u32
 }
 
 void action_delete_secure_value(linked_list* items, list_item* selected) {
-    prompt_display_yes_no("Confirmation", "Delete the secure value of the selected title?", COLOR_TEXT, selected->data, task_draw_title_info, action_delete_secure_value_onresponse);
+    prompt_display_yes_no("Are you sure?", "Delete the secure value of the selected title?", COLOR_TEXT, selected->data, task_draw_title_info, action_delete_secure_value_onresponse);
 }

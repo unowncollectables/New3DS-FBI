@@ -109,7 +109,7 @@ static void action_export_twl_save_update(ui_view* view, void* data, float* prog
         info_destroy(view);
 
         if(R_SUCCEEDED(exportData->exportInfo.result)) {
-            prompt_display_notify("Success", "Save exported.", COLOR_TEXT, exportData->title, task_draw_title_info, NULL);
+            prompt_display_notify("Done", "Save exported.", COLOR_SUCCESS, exportData->title, task_draw_title_info, NULL);
         }
 
         free(data);
@@ -186,5 +186,5 @@ void action_export_twl_save(linked_list* items, list_item* selected) {
 
     data->exportInfo.finished = true;
 
-    prompt_display_yes_no("Confirmation", "Export the save of the selected title?", COLOR_TEXT, data, action_export_twl_save_draw_top, action_export_twl_save_onresponse);
+    prompt_display_yes_no("Are you sure?", "Export the save of the selected title?", COLOR_TEXT, data, action_export_twl_save_draw_top, action_export_twl_save_onresponse);
 }

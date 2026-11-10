@@ -172,12 +172,17 @@ static void list_update(ui_view* view, void* data, float bx1, float by1, float b
             hidTouchRead(&pos);
 
             if(hidKeysDown() & KEY_TOUCH) {
-                u32 index = (u32) ((listData->scrollPos + (pos.py - by1)) / (screen_get_font_height(LIST_TEXT_SCALE) + LIST_ROW_PAD));
-                if(index >= 0) {
-                    if(listData->selectedIndex == index) {
-                        selectedTouched = true;
-                    } else {
-                        listData->selectedIndex = (u32) index;
+                /* Only rows count: taps on the title bar, footer or empty space below
+                 * the last row must not select (or open) anything. */
+                float rowPos = listData->scrollPos + ((float) pos.py - by1);
+                if((float) pos.py >= by1 && (float) pos.py < by2 && rowPos >= 0) {
+                    u32 index = (u32) (rowPos / (screen_get_font_height(LIST_TEXT_SCALE) + LIST_ROW_PAD));
+                    if(index < size) {
+                        if(listData->selectedIndex == index) {
+                            selectedTouched = true;
+                        } else {
+                            listData->selectedIndex = index;
+                        }
                     }
                 }
             } else if(hidKeysHeld() & KEY_TOUCH) {

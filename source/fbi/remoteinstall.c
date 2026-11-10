@@ -153,7 +153,7 @@ static void remoteinstall_qr_update(ui_view* view, void* data, float* progress, 
             ui_pop();
             info_destroy(view);
 
-            error_display_res(NULL, NULL, capRes, "Failed to start camera capture.");
+            error_display_res(NULL, NULL, capRes, "Could not start the camera.");
 
             remoteinstall_qr_free_data(installData);
             return;
@@ -167,7 +167,7 @@ static void remoteinstall_qr_update(ui_view* view, void* data, float* progress, 
         info_destroy(view);
 
         if(R_FAILED(installData->captureInfo.result)) {
-            error_display_res(NULL, NULL, installData->captureInfo.result, "Error while capturing camera frames.");
+            error_display_res(NULL, NULL, installData->captureInfo.result, "The camera stopped working.");
         }
 
         remoteinstall_qr_free_data(installData);
@@ -205,18 +205,18 @@ static void remoteinstall_qr_update(ui_view* view, void* data, float* progress, 
 
             remoteinstall_set_last_urls((const char*) qrData.payload);
 
-            action_install_url("Install from the scanned QR code?", (const char*) qrData.payload, NULL, NULL, NULL, NULL, NULL);
+            action_install_url("Install what this QR code\npoints to?", (const char*) qrData.payload, NULL, NULL, NULL, NULL, NULL);
             return;
         }
     }
 
-    snprintf(text, PROGRESS_TEXT_MAX, "Waiting for QR code...");
+    snprintf(text, PROGRESS_TEXT_MAX, "Point the camera at a QR code…");
 }
 
 static void remoteinstall_scan_qr_code() {
     remoteinstall_qr_data* data = (remoteinstall_qr_data*) calloc(1, sizeof(remoteinstall_qr_data));
     if(data == NULL) {
-        error_display(NULL, NULL, "Failed to allocate QR install data.");
+        error_display(NULL, NULL, "Out of memory.");
 
         return;
     }
@@ -234,14 +234,14 @@ static void remoteinstall_scan_qr_code() {
 
     data->qrContext = quirc_new();
     if(data->qrContext == NULL) {
-        error_display(NULL, NULL, "Failed to create QR context.");
+        error_display(NULL, NULL, "Could not start the QR reader.");
 
         remoteinstall_qr_free_data(data);
         return;
     }
 
     if(quirc_resize(data->qrContext, QR_IMAGE_WIDTH, QR_IMAGE_HEIGHT) != 0) {
-        error_display(NULL, NULL, "Failed to resize QR context.");
+        error_display(NULL, NULL, "Could not start the QR reader.");
 
         remoteinstall_qr_free_data(data);
         return;
@@ -249,7 +249,7 @@ static void remoteinstall_scan_qr_code() {
 
     data->captureInfo.buffer = (u16*) calloc(1, QR_IMAGE_WIDTH * QR_IMAGE_HEIGHT * sizeof(u16));
     if(data->captureInfo.buffer == NULL) {
-        error_display(NULL, NULL, "Failed to create image buffer.");
+        error_display(NULL, NULL, "Out of memory.");
 
         remoteinstall_qr_free_data(data);
         return;
@@ -257,42 +257,42 @@ static void remoteinstall_scan_qr_code() {
 
     data->tex = screen_allocate_free_texture();
 
-    info_display("QR Code Install", "B: Return, X: Switch Camera", false, data, remoteinstall_qr_update, remoteinstall_qr_draw_top);
+    info_display("Scan a QR code", "X = switch camera, B = back", false, data, remoteinstall_qr_update, remoteinstall_qr_draw_top);
 }
 
 static void remoteinstall_manually_enter_urls_onresponse(ui_view* view, void* data, SwkbdButton button, const char* response) {
     if(button == SWKBD_BUTTON_CONFIRM) {
         remoteinstall_set_last_urls(response);
 
-        action_install_url("Install from the entered URL(s)?", response, NULL, NULL, NULL, NULL, NULL);
+        action_install_url("Install from the link you typed?", response, NULL, NULL, NULL, NULL, NULL);
     }
 }
 
 static void remoteinstall_manually_enter_urls() {
-    kbd_display("Enter URL(s)", "", SWKBD_TYPE_NORMAL, SWKBD_MULTILINE, SWKBD_NOTEMPTY_NOTBLANK, DOWNLOAD_URL_MAX * INSTALL_URLS_MAX, NULL, remoteinstall_manually_enter_urls_onresponse);
+    kbd_display("Type a download link", "", SWKBD_TYPE_NORMAL, SWKBD_MULTILINE, SWKBD_NOTEMPTY_NOTBLANK, DOWNLOAD_URL_MAX * INSTALL_URLS_MAX, NULL, remoteinstall_manually_enter_urls_onresponse);
 }
 
 static void remoteinstall_repeat_last_request() {
     char* textBuf = (char*) calloc(1, DOWNLOAD_URL_MAX * INSTALL_URLS_MAX);
     if(textBuf != NULL) {
         if(remoteinstall_get_last_urls(textBuf, DOWNLOAD_URL_MAX * INSTALL_URLS_MAX)) {
-            action_install_url("Install from the last requested URL(s)?", textBuf, NULL, NULL, NULL, NULL, NULL);
+            action_install_url("Install from the last link again?", textBuf, NULL, NULL, NULL, NULL, NULL);
         } else {
-            prompt_display_notify("Failure", "No previously requested URL(s) could be found.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Nothing saved", "There is no last link yet.", COLOR_TEXT, NULL, NULL, NULL);
         }
 
         free(textBuf);
     } else {
-        error_display_res(NULL, NULL, R_APP_OUT_OF_MEMORY, "Failed to allocate URL text buffer.");
+        error_display_res(NULL, NULL, R_APP_OUT_OF_MEMORY, "Out of memory.");
     }
 }
 
 static void remoteinstall_forget_last_request() {
     Result forgetRes = remoteinstall_set_last_urls(NULL);
     if(R_SUCCEEDED(forgetRes)) {
-        prompt_display_notify("Success", "Last requested URL(s) forgotten.", COLOR_TEXT, NULL, NULL, NULL);
+        prompt_display_notify("Done", "The last link was forgotten.", COLOR_TEXT, NULL, NULL, NULL);
     } else {
-        error_display_res(NULL, NULL, forgetRes, "Failed to forget last requested URL(s).");
+        error_display_res(NULL, NULL, forgetRes, "Could not forget the last link.");
     }
 }
 
@@ -456,12 +456,12 @@ static void remoteinstall_github_assets_update(ui_view* view, void* data, linked
         if(index < assetsData->count && assetsData->assets[index].url != NULL) {
             u64 size = assetsData->assets[index].size;
             if(size > 0 && !remoteinstall_sd_has_space(size)) {
-                prompt_display_notify("Failure", "Not enough free space on the SD card.", COLOR_TEXT, NULL, NULL, NULL);
+                prompt_display_notify("SD card full", "Not enough free space on the SD card.", COLOR_TEXT, NULL, NULL, NULL);
                 return;
             }
 
             remoteinstall_set_last_urls(assetsData->assets[index].url);
-            action_install_url("Install this GitHub release asset?\n(Unsafe/system CIAs are refused.)",
+            action_install_url("Install this file?\n(System files are always blocked.)",
                                assetsData->assets[index].url, NULL, NULL, NULL, NULL, NULL);
         }
 
@@ -484,17 +484,17 @@ static void remoteinstall_github_show_http_error(Result res) {
     if(res >= R_APP_HTTP_ERROR_BASE && res < R_APP_HTTP_ERROR_END) {
         u32 code = (u32) (res - R_APP_HTTP_ERROR_BASE);
         if(code == 403 || code == 429) {
-            error_display_res(NULL, NULL, res, "GitHub rate limit or access denied.\nWait and try again later.");
+            error_display_res(NULL, NULL, res, "GitHub said no (too many requests\nor no access). Wait a bit and\ntry again.");
             return;
         }
 
         if(code == 404) {
-            error_display_res(NULL, NULL, res, "GitHub repository or release not found.");
+            error_display_res(NULL, NULL, res, "Could not find that project, or it\nhas no releases.");
             return;
         }
     }
 
-    error_display_res(NULL, NULL, res, "Failed to fetch GitHub release.");
+    error_display_res(NULL, NULL, res, "Could not get the release from GitHub.");
 }
 
 static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* progress, char* text) {
@@ -510,11 +510,11 @@ static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* 
     if(!fetchData->painted) {
         fetchData->painted = true;
         *progress = 0;
-        snprintf(text, PROGRESS_TEXT_MAX, "Fetching latest release...\nB: Cancel");
+        snprintf(text, PROGRESS_TEXT_MAX, "Getting the latest release…");
         return;
     }
 
-    snprintf(text, PROGRESS_TEXT_MAX, "Downloading release metadata...");
+    snprintf(text, PROGRESS_TEXT_MAX, "Reading the release…");
 
     Result res = 0;
     json_t* json = NULL;
@@ -538,7 +538,7 @@ static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* 
                         if(json_is_string(tagName)) {
                             snprintf(assetsData->listTitle, sizeof(assetsData->listTitle), "Release %s", json_string_value(tagName));
                         } else {
-                            snprintf(assetsData->listTitle, sizeof(assetsData->listTitle), "GitHub Release Assets");
+                            snprintf(assetsData->listTitle, sizeof(assetsData->listTitle), "Release files");
                         }
 
                         if(total > 0) {
@@ -622,7 +622,7 @@ static void remoteinstall_github_fetch_update(ui_view* view, void* data, float* 
         if(R_FAILED(res)) {
             remoteinstall_github_show_http_error(res);
         } else {
-            prompt_display_notify("Failure", "Latest release has no .cia/.3dsx assets.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Nothing to install", "The latest release has no\n.cia or .3dsx files.", COLOR_TEXT, NULL, NULL, NULL);
         }
     }
 
@@ -654,22 +654,22 @@ static void remoteinstall_github_onresponse(ui_view* view, void* data, SwkbdButt
     if(!remoteinstall_parse_github_repo(response, owner, sizeof(owner), repo, sizeof(repo))
        || !remoteinstall_github_name_ok(owner)
        || !remoteinstall_github_name_ok(repo)) {
-        prompt_display_notify("Failure", "Enter owner/repo (or a github.com URL).", COLOR_TEXT, NULL, NULL, NULL);
+        prompt_display_notify("Check the name", "Type it as owner/project\n(or paste a github.com link).", COLOR_TEXT, NULL, NULL, NULL);
         return;
     }
 
     remoteinstall_github_fetch_data* fetchData = (remoteinstall_github_fetch_data*) calloc(1, sizeof(remoteinstall_github_fetch_data));
     if(fetchData == NULL) {
-        error_display_res(NULL, NULL, R_APP_OUT_OF_MEMORY, "Failed to allocate GitHub fetch data.");
+        error_display_res(NULL, NULL, R_APP_OUT_OF_MEMORY, "Out of memory.");
         return;
     }
 
     snprintf(fetchData->apiUrl, sizeof(fetchData->apiUrl), "https://api.github.com/repos/%s/%s/releases/latest", owner, repo);
-    info_display("GitHub Release", "B: Cancel", true, fetchData, remoteinstall_github_fetch_update, NULL);
+    info_display("Install from GitHub", "B = cancel", true, fetchData, remoteinstall_github_fetch_update, NULL);
 }
 
 static void remoteinstall_github_release() {
-    kbd_display("GitHub owner/repo", "", SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, 128, NULL, remoteinstall_github_onresponse);
+    kbd_display("GitHub owner/project", "", SWKBD_TYPE_NORMAL, 0, SWKBD_NOTEMPTY_NOTBLANK, 128, NULL, remoteinstall_github_onresponse);
 }
 
 static list_item scan_qr_code = {"Scan a QR code", COLOR_TEXT, remoteinstall_scan_qr_code};

@@ -371,7 +371,7 @@ static void task_data_op_thread(void* arg) {
 
         if(R_FAILED(res)) {
             if(res == R_APP_CANCELLED) {
-                prompt_display_notify("Failure", "Operation cancelled.", COLOR_TEXT, NULL, NULL, NULL);
+                prompt_display_notify("Stopped", "Cancelled.\nAnything not finished was not changed.", COLOR_TEXT, NULL, NULL, NULL);
                 break;
             } else if(res != R_APP_SKIPPED) {
                 ui_view* errorView = NULL;
@@ -389,7 +389,7 @@ static void task_data_op_thread(void* arg) {
                         break;
                     }
                 } else {
-                    ui_view* retryView = prompt_display_yes_no("Confirmation", "Retry?", COLOR_TEXT, data, NULL, task_data_op_retry_onresponse);
+                    ui_view* retryView = prompt_display_yes_no("Try again?", "That did not work.\nDo you want to try again?", COLOR_TEXT, data, NULL, task_data_op_retry_onresponse);
                     if(retryView != NULL) {
                         svcWaitSynchronization(retryView->active, U64_MAX);
 
@@ -397,7 +397,8 @@ static void task_data_op_thread(void* arg) {
                             if(proceed) {
                                 data->processed--;
                             } else {
-                                data->processed = 0;
+                                /* Start over from the first item (loop ++ brings this to 0). */
+                                data->processed = (u32) -1;
                             }
                         } else if(!proceed) {
                             break;

@@ -84,7 +84,7 @@ static void action_delete_pending_titles_update(ui_view* view, void* data, float
         info_destroy(view);
 
         if(R_SUCCEEDED(deleteData->deleteInfo.result)) {
-            prompt_display_notify("Success", "Pending title(s) deleted.", COLOR_TEXT, NULL, NULL, NULL);
+            prompt_display_notify("Done", "Pending title(s) deleted.", COLOR_SUCCESS, NULL, NULL, NULL);
         }
 
         action_delete_pending_titles_free_data(deleteData);
@@ -140,7 +140,7 @@ static void action_delete_pending_titles_loading_update(ui_view* view, void* dat
             loadingData->deleteData->deleteInfo.total = linked_list_size(&loadingData->deleteData->contents);
             loadingData->deleteData->deleteInfo.processed = loadingData->deleteData->deleteInfo.total;
 
-            prompt_display_yes_no("Confirmation", loadingData->message, COLOR_TEXT, loadingData->deleteData, action_delete_pending_titles_draw_top, action_delete_pending_titles_onresponse);
+            prompt_display_yes_no("Are you sure?", loadingData->message, COLOR_TEXT, loadingData->deleteData, action_delete_pending_titles_draw_top, action_delete_pending_titles_onresponse);
         } else {
             error_display_res(NULL, NULL, loadingData->popData.result, "Failed to populate pending title list.");
 
@@ -216,7 +216,7 @@ void action_delete_pending_titles(linked_list* items, list_item* selected, const
         data->deleteInfo.total = 1;
         data->deleteInfo.processed = data->deleteInfo.total;
 
-        prompt_display_yes_no("Confirmation", message, COLOR_TEXT, data, action_delete_pending_titles_draw_top, action_delete_pending_titles_onresponse);
+        prompt_display_yes_no("Are you sure?", message, COLOR_TEXT, data, action_delete_pending_titles_draw_top, action_delete_pending_titles_onresponse);
     }
 }
 

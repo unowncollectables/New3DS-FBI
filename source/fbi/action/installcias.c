@@ -119,14 +119,14 @@ static Result action_install_cias_open_dst(void* data, u32 index, void* initialR
 
     /* Stricter: refuse system/firmware/NAND CIAs entirely. */
     if(!fs_is_remote_install_allowed(info->ciaInfo.titleId)) {
-        return R_APP_BAD_DATA;
+        return R_APP_SAFETY_REFUSED;
     }
 
     FS_MediaType dest = MEDIATYPE_SD;
 
     bool n3ds = false;
     if(R_SUCCEEDED(APT_CheckNew3DS(&n3ds)) && !n3ds && ((info->ciaInfo.titleId >> 28) & 0xF) == 2) {
-        ui_view* view = prompt_display_yes_no("Confirmation", "Title is intended for New 3DS systems.\nContinue?", COLOR_TEXT, data, action_install_cias_draw_top, action_install_cias_n3ds_onresponse);
+        ui_view* view = prompt_display_yes_no("New 3DS only", "This is made for New 3DS / 2DS.\nIt may not work on this console.\n\nInstall it anyway?", COLOR_TEXT, data, action_install_cias_draw_top, action_install_cias_n3ds_onresponse);
         if(view != NULL) {
             svcWaitSynchronization(view->active, U64_MAX);
         }
@@ -148,6 +148,7 @@ static Result action_install_cias_close_dst(void* data, u32 index, bool succeede
 
         Result res = 0;
         if(R_SUCCEEDED(res = AM_FinishCiaInstall(handle))) {
+            extras_history_append(info->name, "OK");
             http_download_seed(info->ciaInfo.titleId);
             /* Never AM_InstallFirm / NATIVE_FIRM. */
         }
@@ -171,11 +172,18 @@ static Result action_install_cias_restore(void* data, u32 index) {
 }
 
 bool action_install_cias_error(void* data, u32 index, Result res, ui_view** errorView) {
-    if(res == R_APP_BAD_DATA) {
+    install_cias_data* installData = (install_cias_data*) data;
+    list_item* it = (list_item*) linked_list_get(&installData->contents, index);
+    file_info* fi = it != NULL ? (file_info*) it->data : NULL;
+    extras_history_append(fi != NULL ? fi->name : "CIA", "Failed");
+
+    if(res == R_APP_SAFETY_REFUSED) {
         *errorView = error_display_res(data, action_install_cias_draw_top, res,
-                                       "Safety check refused this CIA.\n\nOnly SD apps / updates / DLC\n(title types 00040000 / 0004000E / 0004008C)\nare allowed. System/NAND titles\nare never installed.");
+                                       "This CIA was blocked to keep\nyour console safe.\n\nOnly games, updates and DLC\nfor the SD card can be installed.\nSystem files are never installed.");
+    } else if(res == R_APP_BAD_DATA) {
+        *errorView = error_display_res(data, action_install_cias_draw_top, res, "This CIA file looks broken\nor incomplete. Try copying it again.");
     } else {
-        *errorView = error_display_res(data, action_install_cias_draw_top, res, "Failed to install CIA file.");
+        *errorView = error_display_res(data, action_install_cias_draw_top, res, "Could not install this CIA.");
     }
     return true;
 }
@@ -208,36 +216,20 @@ static void action_install_cias_update(ui_view* view, void* data, float* progres
         u32 secs = extras_install_elapsed_seconds();
 
         if(R_SUCCEEDED(installData->installInfo.result)) {
-            linked_list_iter iter;
-            linked_list_iterate(&installData->contents, &iter);
-            while(linked_list_iter_has_next(&iter)) {
-                list_item* it = (list_item*) linked_list_iter_next(&iter);
-                file_info* fi = it != NULL ? (file_info*) it->data : NULL;
-                extras_history_append(fi != NULL ? fi->name : "CIA", "OK");
-            }
-
             char doneMsg[192];
             if(extras_sound_on_done() && secs > 0) {
                 snprintf(doneMsg, sizeof(doneMsg),
-                         "All done! Your game is installed.\n"
-                         "You can open it from the Home Menu.\n\n"
+                         "All done! Install finished.\n"
+                         "Open it from the Home Menu.\n\n"
                          "Time: %lu min %lu sec",
                          (unsigned long) (secs / 60UL), (unsigned long) (secs % 60UL));
             } else {
                 snprintf(doneMsg, sizeof(doneMsg),
-                         "All done! Your game is installed.\n"
-                         "You can open it from the Home Menu.");
+                         "All done! Install finished.\n"
+                         "Open it from the Home Menu.");
             }
             extras_play_done_sound();
             prompt_display_notify("Done!", doneMsg, COLOR_TEXT, NULL, NULL, NULL);
-        } else {
-            linked_list_iter iter;
-            linked_list_iterate(&installData->contents, &iter);
-            while(linked_list_iter_has_next(&iter)) {
-                list_item* it = (list_item*) linked_list_iter_next(&iter);
-                file_info* fi = it != NULL ? (file_info*) it->data : NULL;
-                extras_history_append(fi != NULL ? fi->name : "CIA", "Failed");
-            }
         }
 
         action_install_cias_free_data(installData);
