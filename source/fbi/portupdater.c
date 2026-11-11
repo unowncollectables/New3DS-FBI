@@ -11,13 +11,14 @@
 #include "extras.h"
 
 /* Local-only port CIAs. Never download / never contact the network here.
-   Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / platinum3ds.cia)
+   Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / heartgold3ds.cia / platinum3ds.cia)
    Secondary: sdmc:/fbi/ports/ (optional manual drop folder) */
 #define PORTS_PATH_PRIMARY   "/cias"
 #define PORTS_PATH_SECONDARY "/fbi/ports"
 
 #define PORT_TITLE_SOULSILVER 0x000400000F7D4000ULL
 #define PORT_TITLE_PLATINUM   0x000400000F7D3D00ULL
+#define PORT_TITLE_HEARTGOLD  0x000400000F7D4100ULL
 
 typedef struct {
     const char* name;
@@ -27,6 +28,7 @@ typedef struct {
 static const port_known_title port_known_titles[] = {
     {"SoulSilver", PORT_TITLE_SOULSILVER},
     {"Platinum",   PORT_TITLE_PLATINUM},
+    {"HeartGold",  PORT_TITLE_HEARTGOLD},
 };
 
 typedef struct {
@@ -238,7 +240,7 @@ static Result port_restore(void* data, u32 index) {
 static bool port_install_error(void* data, u32 index, Result res, ui_view** errorView) {
     if(res == R_APP_SAFETY_REFUSED) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
-                                       "Blocked: this file is not a\nSoulSilver or Platinum port.\n\nOnly those two ports can be\nupdated here.");
+                                       "Blocked: this file is not\none of your ports (SoulSilver,\nHeartGold or Platinum).\n\nOnly those can be updated here.");
     } else if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
                                        "This CIA file looks broken\nor incomplete. Build or copy\nit again. Nothing was changed.");
@@ -525,7 +527,7 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
             port_updater_free_data(loadingData->portData);
         } else if(linked_list_size(&loadingData->portData->contents) == 0) {
             prompt_display_notify("No ports found",
-                                  "No SoulSilver or Platinum port\nfiles were found.\n\n"
+                                  "No SoulSilver, HeartGold or\nPlatinum port files were found.\n\n"
                                   "Put your built .cia file in the\n"
                                   "/cias folder (or /fbi/ports)\n"
                                   "on the SD card, then try again.\n\n"

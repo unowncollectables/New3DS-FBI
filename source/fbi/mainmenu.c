@@ -72,7 +72,7 @@ static const char* mainmenu_tooltip(list_item* selected) {
         return "Install every game CIA waiting in the /cias folder on your SD card.";
     }
     if(selected == &mm_ports) {
-        return "Update your SoulSilver or Platinum port from a CIA you built (no internet).";
+        return "Update your SoulSilver, HeartGold or Platinum port from a CIA you built (no internet).";
     }
     if(selected == &mm_update) {
         if(selfupdate_is_available()) {
