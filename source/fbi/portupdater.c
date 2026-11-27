@@ -11,14 +11,17 @@
 #include "extras.h"
 
 /* Local-only port CIAs. Never download / never contact the network here.
-   Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / heartgold3ds.cia / platinum3ds.cia)
+   Primary: sdmc:/cias/  (Pokemon 3DS Builder deploy path: soulsilver3ds.cia / heartgold3ds.cia / platinum3ds.cia / black2_3ds.cia / white2_3ds.cia / pinball-rs.cia)
    Secondary: sdmc:/fbi/ports/ (optional manual drop folder) */
 #define PORTS_PATH_PRIMARY   "/cias"
 #define PORTS_PATH_SECONDARY "/fbi/ports"
 
 #define PORT_TITLE_SOULSILVER 0x000400000F7D4000ULL
-#define PORT_TITLE_PLATINUM   0x000400000F7D3D00ULL
+#define PORT_TITLE_PLATINUM   0x000400000F7D3E00ULL
 #define PORT_TITLE_HEARTGOLD  0x000400000F7D4100ULL
+#define PORT_TITLE_BLACK2     0x000400000F7D4200ULL
+#define PORT_TITLE_WHITE2     0x000400000F7D4300ULL
+#define PORT_TITLE_PINBALL    0x000400000F7B5200ULL
 
 typedef struct {
     const char* name;
@@ -29,6 +32,9 @@ static const port_known_title port_known_titles[] = {
     {"SoulSilver", PORT_TITLE_SOULSILVER},
     {"Platinum",   PORT_TITLE_PLATINUM},
     {"HeartGold",  PORT_TITLE_HEARTGOLD},
+    {"Black 2",    PORT_TITLE_BLACK2},
+    {"White 2",    PORT_TITLE_WHITE2},
+    {"Pinball",    PORT_TITLE_PINBALL},
 };
 
 typedef struct {
@@ -204,7 +210,7 @@ static Result port_open_dst(void* data, u32 index, void* initialReadBlock, u64 s
         return R_APP_BAD_DATA;
     }
 
-    /* Strict: only the two known port title IDs, and still on the SD allowlist. */
+    /* Strict: only the known port title IDs, and still on the SD allowlist. */
     if(!port_is_known_title(titleId) || !fs_is_remote_install_allowed(titleId)) {
         return R_APP_SAFETY_REFUSED;
     }
@@ -240,7 +246,7 @@ static Result port_restore(void* data, u32 index) {
 static bool port_install_error(void* data, u32 index, Result res, ui_view** errorView) {
     if(res == R_APP_SAFETY_REFUSED) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
-                                       "Blocked: this file is not\none of your ports (SoulSilver,\nHeartGold or Platinum).\n\nOnly those can be updated here.");
+                                       "Blocked: this file is not\none of your ports (Platinum,\nSoulSilver, HeartGold, Black 2,\nWhite 2 or Pinball).\n\nOnly those can be updated here.");
     } else if(res == R_APP_BAD_DATA) {
         *errorView = error_display_res(data, port_updater_draw_top, res,
                                        "This CIA file looks broken\nor incomplete. Build or copy\nit again. Nothing was changed.");
@@ -442,6 +448,34 @@ typedef struct {
     bool cancelled;
 } port_loading_data;
 
+static list_item* port_list_find_title(linked_list* list, u64 titleId) {
+    linked_list_iter iter;
+    linked_list_iterate(list, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        file_info* info = (file_info*) item->data;
+        if(info->ciaInfo.titleId == titleId) {
+            return item;
+        }
+    }
+
+    return NULL;
+}
+
+static void port_list_remove_title(linked_list* list, u64 titleId) {
+    linked_list_iter iter;
+    linked_list_iterate(list, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        file_info* info = (file_info*) item->data;
+        if(info->ciaInfo.titleId == titleId) {
+            linked_list_iter_remove(&iter);
+            task_free_file(item);
+            return;
+        }
+    }
+}
+
 static void port_filter_known_only(port_updater_data* data) {
     linked_list kept;
     linked_list_init(&kept);
@@ -458,7 +492,17 @@ static void port_filter_known_only(port_updater_data* data) {
 
         linked_list_iter_remove(&iter);
         if(keep) {
-            linked_list_add(&kept, item);
+            /* One entry per port: if the same title was scanned in both
+               folders, keep only the newest version (first folder wins ties). */
+            list_item* existing = port_list_find_title(&kept, info->ciaInfo.titleId);
+            if(existing == NULL) {
+                linked_list_add(&kept, item);
+            } else if(info->ciaInfo.version > ((file_info*) existing->data)->ciaInfo.version) {
+                port_list_remove_title(&kept, info->ciaInfo.titleId);
+                linked_list_add(&kept, item);
+            } else {
+                task_free_file(item);
+            }
         } else {
             task_free_file(item);
         }
@@ -527,7 +571,7 @@ static void port_loading_update(ui_view* view, void* data, float* progress, char
             port_updater_free_data(loadingData->portData);
         } else if(linked_list_size(&loadingData->portData->contents) == 0) {
             prompt_display_notify("No ports found",
-                                  "No SoulSilver, HeartGold or\nPlatinum port files were found.\n\n"
+                                  "No Platinum, SoulSilver,\nHeartGold, Black 2, White 2\nor Pinball port files found.\n\n"
                                   "Put your built .cia file in the\n"
                                   "/cias folder (or /fbi/ports)\n"
                                   "on the SD card, then try again.\n\n"

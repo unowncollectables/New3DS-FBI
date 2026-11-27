@@ -31,7 +31,8 @@
 - [ ] Install updates only title `0xF83FB` / `New3DS-FBI.cia`; settings preserved; prompts to restart
 
 ## Update my Pokemon ports
-- [ ] Scans `/cias` then `/fbi/ports`; lists only SoulSilver / Platinum title IDs
+- [ ] Scans `/cias` then `/fbi/ports`; lists only the known port title IDs (Platinum / SoulSilver / HeartGold / Black 2 / White 2 / Pinball)
+- [ ] Same port found in both folders lists once (newest version wins)
 - [ ] Empty → instructions mentioning builder `cias/` filenames
 - [ ] Overwrite install; saves preserved; B cancels safely; no network
 
