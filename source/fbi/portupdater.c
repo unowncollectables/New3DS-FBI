@@ -448,6 +448,34 @@ typedef struct {
     bool cancelled;
 } port_loading_data;
 
+static list_item* port_list_find_title(linked_list* list, u64 titleId) {
+    linked_list_iter iter;
+    linked_list_iterate(list, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        file_info* info = (file_info*) item->data;
+        if(info->ciaInfo.titleId == titleId) {
+            return item;
+        }
+    }
+
+    return NULL;
+}
+
+static void port_list_remove_title(linked_list* list, u64 titleId) {
+    linked_list_iter iter;
+    linked_list_iterate(list, &iter);
+    while(linked_list_iter_has_next(&iter)) {
+        list_item* item = (list_item*) linked_list_iter_next(&iter);
+        file_info* info = (file_info*) item->data;
+        if(info->ciaInfo.titleId == titleId) {
+            linked_list_iter_remove(&iter);
+            task_free_file(item);
+            return;
+        }
+    }
+}
+
 static void port_filter_known_only(port_updater_data* data) {
     linked_list kept;
     linked_list_init(&kept);
@@ -464,7 +492,17 @@ static void port_filter_known_only(port_updater_data* data) {
 
         linked_list_iter_remove(&iter);
         if(keep) {
-            linked_list_add(&kept, item);
+            /* One entry per port: if the same title was scanned in both
+               folders, keep only the newest version (first folder wins ties). */
+            list_item* existing = port_list_find_title(&kept, info->ciaInfo.titleId);
+            if(existing == NULL) {
+                linked_list_add(&kept, item);
+            } else if(info->ciaInfo.version > ((file_info*) existing->data)->ciaInfo.version) {
+                port_list_remove_title(&kept, info->ciaInfo.titleId);
+                linked_list_add(&kept, item);
+            } else {
+                task_free_file(item);
+            }
         } else {
             task_free_file(item);
         }
